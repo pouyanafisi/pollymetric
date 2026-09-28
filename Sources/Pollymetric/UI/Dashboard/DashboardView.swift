@@ -13,7 +13,7 @@ struct DashboardView: View {
                 Section("Agent Activity") {
                     row(.servers, badge: store.servers.value.map { $0.servers.isEmpty ? nil : "\($0.servers.count)" } ?? nil)
                     row(.worktrees, badge: store.worktrees.value.map { $0.worktrees.isEmpty ? nil : "\($0.worktrees.count)" } ?? nil)
-                    row(.extensions, badge: nil)
+                    row(.extensions, badge: store.extensions.value.flatMap { $0.worthALookCount == 0 ? nil : "\($0.worthALookCount)" })
                 }
                 Section("Storage") {
                     row(.cleanup, badge: store.clean.value.map { Bytes.format($0.totalBytes) })
