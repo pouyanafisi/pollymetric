@@ -41,6 +41,7 @@
   --green-text: #177b46;
   --amber: #d9730f;
   --amber-bg: rgba(224, 125, 24, 0.13);
+  --amber-text: #9a4b00;
   --blue: #3b5bfd;
   --btn: #111113;
   --btn-ink: #ffffff;
@@ -60,6 +61,7 @@
   --green-text: #65d99a;
   --amber: #f5a04a;
   --amber-bg: rgba(245, 160, 74, 0.15);
+  --amber-text: #f5a04a;
   --btn: #f3f3f5;
   --btn-ink: #0b0b0c;
   color-scheme: dark;
@@ -86,6 +88,7 @@ section { padding-top: 128px; scroll-margin-top: 40px; }
 .section-head { text-align: center; max-width: 680px; margin: 0 auto; }
 .section-head h2, .split h2 { font-size: clamp(34px, 4vw, 52px); line-height: 1.06; }
 .section-head p { color: var(--ink-2); margin: 16px 0 0; font-size: 17px; }
+.section-head .proof { margin-top: 14px; font-size: 15px; font-weight: 500; color: var(--ink); }
 .eyebrow { display: inline-block; font-size: 13px; font-weight: 500; color: var(--ink-2); padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; margin-bottom: 18px; }
 .example { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
 
@@ -139,7 +142,7 @@ nav.top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: cente
 
 .stage { max-width: 1128px; margin: 52px auto 0; }
 .desk {
-  position: relative; height: 660px; border-radius: 22px; overflow: hidden; text-align: left;
+  position: relative; height: 700px; border-radius: 22px; overflow: hidden; text-align: left;
   background:
     radial-gradient(120% 90% at 85% 0%, #dfe6ff 0%, transparent 55%),
     radial-gradient(90% 80% at 0% 100%, #fbe9dc 0%, transparent 60%),
@@ -199,7 +202,7 @@ nav.top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: cente
 .chip .ico svg { width: 15px; height: 15px; }
 .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .tag { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
-.tag-amber { background: var(--amber-bg); color: var(--amber); }
+.tag-amber { background: var(--amber-bg); color: var(--amber-text); }
 .tag-green { background: rgba(47, 191, 113, 0.14); color: var(--green-text); }
 
 /* The problem */
@@ -209,9 +212,9 @@ nav.top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: cente
 .problem .ic svg { width: 19px; height: 19px; }
 .problem h3 { font-size: 20px; letter-spacing: -0.02em; margin-top: 18px; }
 .problem p { color: var(--ink-2); font-size: 15.5px; line-height: 1.5; margin: 8px 0 0; }
-.problem .fix { margin-top: auto; padding-top: 18px; font-size: 14.5px; color: var(--ink); border-top: 1px solid var(--line); }
+.problem .fix { padding-top: 18px; font-size: 14.5px; color: var(--ink); border-top: 1px solid var(--line); }
 .problem .fix b { display: block; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--green-text); margin-bottom: 4px; }
-.problem .fix-wrap { margin-top: 18px; }
+.problem .fix-wrap { margin-top: auto; padding-top: 18px; }
 
 /* Before / after */
 .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 48px; }
@@ -229,7 +232,7 @@ nav.top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: cente
 /* Tour */
 .tour { margin-top: 44px; }
 .tour-bar { display: flex; align-items: center; gap: 16px; }
-.tabs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; flex: 1; }
+.tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; flex: 1; }
 .tab {
   text-align: left; background: none; border: 0; padding: 0; cursor: pointer; color: var(--ink-3); min-height: 44px;
   font: 500 14px/1.3 "Geist", sans-serif;
@@ -383,8 +386,8 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
   .stage { margin-inline: 20px; }
   .desk { height: 600px; border-radius: 16px; }
   .desk .chip, .mb-menus, .mb-ic, .mb-left b, .try { display: none; }
-  .mb-panel { width: 290px; left: auto; right: -64px; transform: none; }
-  .mb-panel.closed { transform: scale(.96) translateY(-6px); }
+  .mb-item { position: static; }
+  .mb-panel { top: 40px; left: 50%; right: auto; width: min(290px, calc(100% - 24px)); transform: translateX(-50%); z-index: 3; }
   .compare, .split, .cards3, .steps, footer { grid-template-columns: 1fr; }
   .bento { grid-template-columns: 1fr; }
   .tile.big { grid-row: auto; min-height: 280px; }
@@ -417,7 +420,9 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
   .actions { gap: 6px; }
   .actions .btn { padding: 0 14px; }
   .problems { grid-template-columns: 1fr; }
-  .step-card { height: 220px; }
+  .step-card { height: 160px; }
+  .step-card.main { height: 220px; }
+  .tile.big { min-height: 200px; }
   .step-card.main img { width: 64%; margin-top: 50px; }
 }
 </style>
@@ -447,7 +452,7 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
 <main>
   <header class="hero">
     <h1>See what your AI agents are doing to your Mac</h1>
-    <p class="lede">Agents start servers, copy your projects, load local models and install tools, and rarely clean up. Pollymetric shows what's running, who started it, what it's costing you, and what got left behind.</p>
+    <p class="lede">Find servers left running, project copies filling your disk and models holding memory. See who started them and what needs attention, right from your menu bar.</p>
     <div class="cta">
       <a class="btn btn-dark btn-lg" href="https://github.com/pouyanafisi/pollymetric/releases/latest/download/Pollymetric.dmg">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.2 1-4 2.5-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8 0 0-2.5-1-2.5-4zM14 5.4c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.1-.6 2.8-1.4z"/></svg>
@@ -472,8 +477,8 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
                 <img src="/img/logo.svg" alt="">
               </button>
               <div class="mb-panel" id="hero-panel">
-                <img class="theme-light-only" src="/img/panel-light.webp" alt="The Pollymetric panel: a server left running by an agent, a key stored in plain text, 14 GB in unused worktrees, and what's using the Mac" width="772" height="1462">
-                <img class="theme-dark-only" src="/img/panel-dark.webp" alt="The Pollymetric panel in dark mode" width="772" height="1462">
+                <img class="theme-light-only" src="/img/panel-light.webp" alt="The Pollymetric panel: a server left running by an agent, a key stored in plain text, 14 GB in unused worktrees, and what's using the Mac" width="772" height="1544">
+                <img class="theme-dark-only" src="/img/panel-dark.webp" alt="The Pollymetric panel in dark mode" width="772" height="1570">
               </div>
             </div>
             <svg class="mb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.3" r=".8" fill="currentColor"/></svg>
@@ -487,7 +492,7 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
         </div>
         <div class="chip" style="left:8%;top:268px">
           <div class="row"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="5" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><path d="M6 7v2a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7M12 12v5"/></svg></span>
-          <div><b>14 GB in unused worktrees</b><span>4 project copies untouched for a week</span></div></div>
+          <div><b>14 GB in old project copies</b><span>4 untouched for over a week</span></div></div>
         </div>
         <div class="chip" style="left:4%;top:416px">
           <div class="row"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/></svg></span>
@@ -502,8 +507,31 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
       <span class="eyebrow">Why it exists</span>
       <h2>Agents do the work. Your Mac pays for it.</h2>
       <p>Every task an agent takes on can leave something behind. None of it is labelled, and none of it shows up where you'd look.</p>
+      <p class="proof">On the maker's own Mac: 73 forgotten project copies holding 88.8 GB.</p>
     </div>
-    <div class="problems">
+    <div class="compare">
+      <div class="pane before">
+        <h3>What your Mac tells you <span class="example">Example</span></h3>
+        <div class="rows">
+          <div class="r"><span>node</span><span class="num">301%</span></div>
+          <div class="r"><span>ollama</span><span class="num">6.5 GB</span></div>
+          <div class="r"><span>node</span><span class="num">612 MB</span></div>
+          <div class="r"><span>python3.12</span><span class="num">96 MB</span></div>
+        </div>
+        <p>Which project? Which agent? Is it still needed?</p>
+      </div>
+      <div class="pane after">
+        <h3>What Pollymetric tells you <span class="example">Example</span></h3>
+        <div class="rows">
+          <div class="r"><div>tsup --watch in storefront <small>started by Claude Code · rebuilding in a loop</small></div><span class="tag tag-amber">16 flare-ups</span></div>
+          <div class="r"><div>Ollama · llama3.1:8b <small>a local model held in memory</small></div><span class="num">6.5 GB</span></div>
+          <div class="r"><div>next dev in storefront <small>Claude Code has quit; this is still running</small></div><span class="tag tag-amber">Left running</span></div>
+          <div class="r"><div>uvicorn in api <small>started by Claude Code in iTerm2</small></div><span class="num">96 MB</span></div>
+        </div>
+        <p>Named by what it is and who started it, with two weeks of history behind it.</p>
+      </div>
+    </div>
+    <div class="problems" style="margin-top:20px">
       <div class="problem">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></div>
         <h3>Servers nobody stopped</h3>
@@ -530,44 +558,21 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
       </div>
     </div>
 
-    <div class="compare">
-      <div class="pane before">
-        <h3>What your Mac tells you <span class="example">Example</span></h3>
-        <div class="rows">
-          <div class="r"><span>node</span><span class="num">301%</span></div>
-          <div class="r"><span>ollama</span><span class="num">6.5 GB</span></div>
-          <div class="r"><span>node</span><span class="num">612 MB</span></div>
-          <div class="r"><span>python3.12</span><span class="num">96 MB</span></div>
-        </div>
-        <p>Which project? Which agent? Is it still needed?</p>
-      </div>
-      <div class="pane after">
-        <h3>What Pollymetric tells you <span class="example">Example</span></h3>
-        <div class="rows">
-          <div class="r"><div>tsup --watch in storefront <small>started by Claude Code · rebuilding in a loop</small></div><span class="tag tag-amber">16 flare-ups</span></div>
-          <div class="r"><div>Ollama · llama3.1:8b <small>a local model, loaded 9 days ago</small></div><span class="num">6.5 GB</span></div>
-          <div class="r"><div>next dev in storefront <small>Claude Code has quit; this is still running</small></div><span class="tag tag-amber">Left running</span></div>
-          <div class="r"><div>uvicorn in api <small>started by Claude Code in iTerm2</small></div><span class="num">96 MB</span></div>
-        </div>
-        <p>Named by what it is and who started it, with two weeks of history behind it.</p>
-      </div>
-    </div>
   </section>
 
   <section id="tour" class="wrap">
     <div class="section-head">
       <h2>See it work</h2>
-      <p>From a glance at the menu bar to what got left behind, and a fix you approve.</p>
+      <p>What got left behind, what your agents have been given, and a fix you approve.</p>
     </div>
     <div class="tour" data-tour>
       <div class="tour-bar">
         <div class="tabs" role="tablist" aria-label="Product tour">
-          <button class="tab" role="tab" id="tab-1" aria-controls="slide-1" aria-selected="true"><div class="bar"><i></i></div><span class="n">01</span>Glance</button>
-          <button class="tab" role="tab" id="tab-2" aria-controls="slide-2" aria-selected="false" tabindex="-1"><div class="bar"><i></i></div><span class="n">02</span>Servers</button>
-          <button class="tab" role="tab" id="tab-3" aria-controls="slide-3" aria-selected="false" tabindex="-1"><div class="bar"><i></i></div><span class="n">03</span>Worktrees</button>
-          <button class="tab" role="tab" id="tab-4" aria-controls="slide-4" aria-selected="false" tabindex="-1"><div class="bar"><i></i></div><span class="n">04</span>Plugins</button>
-          <button class="tab" role="tab" id="tab-5" aria-controls="slide-5" aria-selected="false" tabindex="-1"><div class="bar"><i></i></div><span class="n">05</span>Explain</button>
-          <button class="tab" role="tab" id="tab-6" aria-controls="slide-6" aria-selected="false" tabindex="-1"><div class="bar"><i></i></div><span class="n">06</span>Approve</button>
+          <button class="tab" role="tab" id="tab-1" aria-controls="slide-1" aria-selected="true"><div class="bar"><i></i></div><span class="n">01</span>Servers</button>
+          <button class="tab" role="tab" id="tab-2" aria-controls="slide-2" aria-selected="false" tabindex="-1"><div class="bar"><i></i></div><span class="n">02</span>Worktrees</button>
+          <button class="tab" role="tab" id="tab-3" aria-controls="slide-3" aria-selected="false" tabindex="-1"><div class="bar"><i></i></div><span class="n">03</span>Plugins</button>
+          <button class="tab" role="tab" id="tab-4" aria-controls="slide-4" aria-selected="false" tabindex="-1"><div class="bar"><i></i></div><span class="n">04</span>Explain</button>
+          <button class="tab" role="tab" id="tab-5" aria-controls="slide-5" aria-selected="false" tabindex="-1"><div class="bar"><i></i></div><span class="n">05</span>Approve</button>
         </div>
         <button class="icon-btn play" type="button" aria-label="Pause the tour">
           <svg class="i-pause" viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></svg>
@@ -575,14 +580,7 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
         </button>
       </div>
       <div class="frame">
-        <div class="slide" role="tabpanel" id="slide-1" aria-labelledby="tab-1" data-tips='[[100,8,"Your Mac&apos;s health","One score. It turns amber or red only when something needs you."],[100,25,"What needs you","Leftovers first: a server nobody stopped, a key in plain text, space held by old copies."],[100,49,"The basics","CPU, memory, disk and battery, one glance each."],[100,74,"What&apos;s using your Mac","Named by what it is and who started it."]]'>
-          <div class="scroller"><div class="shot">
-            <img class="narrow theme-light-only" src="/img/panel-light.webp" alt="The menu bar panel with three things that need attention" width="772" height="1462">
-            <img class="narrow theme-dark-only" src="/img/panel-dark.webp" alt="The menu bar panel in dark mode" width="772" height="1462">
-          </div></div>
-          <p class="caption">One glance tells you what needs you, starting with what agents left behind.</p>
-        </div>
-        <div class="slide" role="tabpanel" id="slide-2" aria-labelledby="tab-2" hidden data-tips='[[46,27,"Everything listening","Every server on your Mac, grouped by the agent or app that started it."],[55.5,43,"Left running","The agent that started it has quit. Pollymetric remembers who it was."],[56.5,67,"Open to your network","Other machines on your Wi-Fi can reach this one."],[92.5,44,"Open or quit","Check what it is in your browser, or stop it."]]'>
+        <div class="slide" role="tabpanel" id="slide-1" aria-labelledby="tab-1" data-tips='[[46,27,"Everything listening","Every server on your Mac, grouped by the agent or app that started it."],[55.5,43,"Left running","The agent that started it has quit. Pollymetric remembers who it was."],[56.5,67,"Open to your network","Other machines on your Wi-Fi can reach this one."],[92.5,44,"Open or quit","Check what it is in your browser, or stop it."]]'>
           <div class="scroller"><div class="shot wide">
             <img class="win theme-light-only" src="/img/servers-light.webp" alt="Local Servers: what's listening, who started it, and one left running after Claude Code quit" width="1600" height="1003" loading="lazy">
             <img class="win theme-dark-only" src="/img/servers-dark.webp" alt="Local Servers in dark mode" width="1600" height="1003" loading="lazy">
@@ -590,7 +588,7 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
           <span class="scroll-hint">Swipe to see the whole window</span>
           <p class="caption">Every server on your Mac, who started it, and the ones nobody stopped.</p>
         </div>
-        <div class="slide" role="tabpanel" id="slide-3" aria-labelledby="tab-3" hidden data-tips='[[42,26,"Space held by copies","Across every project, with how many have gone untouched."],[46,45,"Who made it","The agent that created each copy, when it can tell."],[26,53.5,"Last touched","Old copies are the safe ones to clear."],[92,52,"Remove safely","Your branch stays. Anything unsaved gets a clear warning first."]]'>
+        <div class="slide" role="tabpanel" id="slide-2" aria-labelledby="tab-2" hidden data-tips='[[42,26,"Space held by copies","Across every project, with how many have gone untouched."],[46,45,"Who made it","The agent that created each copy, when it can tell."],[26,53.5,"Last touched","See when each copy was last touched, then review it before removal."],[92,52,"Remove safely","Your branch stays. Anything unsaved gets a clear warning first."]]'>
           <div class="scroller"><div class="shot wide">
             <img class="win theme-light-only" src="/img/worktrees-light.webp" alt="Worktrees: extra copies of projects that agents created, and the space they hold" width="1600" height="1003" loading="lazy">
             <img class="win theme-dark-only" src="/img/worktrees-dark.webp" alt="Worktrees in dark mode" width="1600" height="1003" loading="lazy">
@@ -598,7 +596,7 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
           <span class="scroll-hint">Swipe to see the whole window</span>
           <p class="caption">The copies agents made of your projects, and the space you can get back.</p>
         </div>
-        <div class="slide" role="tabpanel" id="slide-4" aria-labelledby="tab-4" hidden data-tips='[[41,49,"Running now","Which plugins are active at this moment."],[28.8,56,"Runs the latest","It fetches and runs whatever version a registry serves each time it starts."],[57.3,56,"Key in plain text","Anything that can read this file can use the key."],[92,33,"Worth a look","Filter down to just the items with a flag."]]'>
+        <div class="slide" role="tabpanel" id="slide-3" aria-labelledby="tab-3" hidden data-tips='[[41,49,"Running now","Which plugins are active at this moment."],[28.8,56,"Runs the latest","It fetches and runs whatever version a registry serves each time it starts."],[57.3,56,"Key in plain text","Anything that can read this file can use the key."],[92,33,"Worth a look","Filter down to just the items with a flag."]]'>
           <div class="scroller"><div class="shot wide">
             <img class="win theme-light-only" src="/img/plugins-light.webp" alt="Plugins and Skills: what each agent can use, with anything worth a second look flagged" width="1600" height="1003" loading="lazy">
             <img class="win theme-dark-only" src="/img/plugins-dark.webp" alt="Plugins and Skills in dark mode" width="1600" height="1003" loading="lazy">
@@ -606,7 +604,7 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
           <span class="scroll-hint">Swipe to see the whole window</span>
           <p class="caption">What your agents have been given, and anything worth a second look.</p>
         </div>
-        <div class="slide" role="tabpanel" id="slide-5" aria-labelledby="tab-5" hidden data-tips='[[26,27,"It shows its work","Every step your agent took, tucked away until you want it."],[21,35,"A plan you can follow","What it&apos;s checking, ticked off as it goes."],[21,88,"The fix","Concrete steps, specific to your project."],[65,12,"Answered, nothing changed","It explains before it touches anything."]]'>
+        <div class="slide" role="tabpanel" id="slide-4" aria-labelledby="tab-4" hidden data-tips='[[26,27,"It shows its work","Every step your agent took, tucked away until you want it."],[21,35,"A plan you can follow","What it&apos;s checking, ticked off as it goes."],[21,88,"The fix","Concrete steps, specific to your project."],[65,12,"Answered, nothing changed","It explains before it touches anything."]]'>
           <div class="scroller"><div class="shot wide">
             <img class="win theme-light-only" src="/img/explain-light.webp" alt="An agent explaining why a build watcher keeps using CPU" width="1600" height="1003" loading="lazy">
             <img class="win theme-dark-only" src="/img/explain-dark.webp" alt="The agent's explanation in dark mode" width="1600" height="1003" loading="lazy">
@@ -614,7 +612,7 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
           <span class="scroll-hint">Swipe to see the whole window</span>
           <p class="caption">Click Explain, and your own agent investigates right beside the process.</p>
         </div>
-        <div class="slide" role="tabpanel" id="slide-6" aria-labelledby="tab-6" hidden data-tips='[[46,57,"It asks first","Anything that would change your Mac waits for your okay."],[26,87,"One step at a time","Allow once or reject. Nothing is approved for later."],[35,13,"Read-only until you say so","The agent can look, not change."]]'>
+        <div class="slide" role="tabpanel" id="slide-5" aria-labelledby="tab-5" hidden data-tips='[[46,57,"It asks first","Anything that would change your Mac waits for your okay."],[26,87,"One step at a time","Allow once or reject. Nothing is approved for later."],[35,13,"Read-only until you say so","The agent can look, not change."]]'>
           <div class="scroller"><div class="shot wide">
             <img class="win theme-light-only" src="/img/approve-light.webp" alt="The agent asking permission before changing anything" width="1600" height="1003" loading="lazy">
             <img class="win theme-dark-only" src="/img/approve-dark.webp" alt="A permission request in dark mode" width="1600" height="1003" loading="lazy">
@@ -686,7 +684,7 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
     <div class="bento">
       <div class="tile big">
         <h3>Barely there</h3>
-        <div class="num">&lt;1%<small>CPU while it watches</small></div>
+        <div class="num">&lt;1%<small>CPU at idle</small></div>
         <p>It keeps an eye on everything from the menu bar without becoming the problem.</p>
       </div>
       <div class="tile">
@@ -696,7 +694,7 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
       </div>
       <div class="tile dark">
         <h3>Private by design</h3>
-        <p>Everything Pollymetric records stays on your Mac. This site doesn't track you either.</p>
+        <p>Your monitoring history is stored on your Mac. Explain and Find a Fix share only the relevant context with the agent you choose. This site doesn't track you.</p>
         <div class="pills"><span>No account</span><span>Local history</span><span>No tracking</span></div>
       </div>
       <div class="tile wide">
@@ -762,7 +760,7 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
       </div>
     </div>
     <div class="visual" aria-hidden="true">
-      <img src="/img/panel-dark.webp" alt="" loading="lazy" width="772" height="1462">
+      <img src="/img/panel-dark.webp" alt="" loading="lazy" width="772" height="1570">
     </div>
   </div>
 </main>
@@ -836,7 +834,7 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
     var tabs = Array.prototype.slice.call(root.querySelectorAll('[role="tab"]'));
     var slides = Array.prototype.slice.call(root.querySelectorAll('[role="tabpanel"]'));
     var playBtn = root.querySelector(".play");
-    var ms = 8000, i = 0, timer = null, started = 0, left = ms, seen = false;
+    var ms = 8000, i = 0, timer = null, started = 0, left = ms, seen = false, visible = false;
     var still = matchMedia("(prefers-reduced-motion: reduce)").matches;
     var playing = !still;
     root.style.setProperty("--tour-ms", ms + "ms");
@@ -892,7 +890,7 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
     }
     function schedule() {
       clearTimeout(timer);
-      if (!playing || !seen || document.hidden) return;
+      if (!playing || !seen || !visible || document.hidden) return;
       started = Date.now();
       timer = setTimeout(function () { show(i + 1); }, left);
     }
@@ -909,6 +907,11 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
       });
     });
     playBtn.addEventListener("click", function () { setPlaying(!playing); });
+    // With reduced motion nothing plays by itself, so there's nothing to play or pause.
+    if (still) playBtn.hidden = true;
+    // Touching or panning a screenshot means the visitor is reading it.
+    root.querySelector(".frame").addEventListener("pointerdown", takeOver);
+    root.querySelectorAll(".scroller").forEach(function (sc) { sc.addEventListener("scroll", takeOver, { passive: true }); });
     root.addEventListener("click", function (e) {
       var h = e.target.closest(".hs");
       document.querySelectorAll(".hs.open").forEach(function (o) { if (o !== h) o.classList.remove("open"); });
@@ -920,10 +923,11 @@ footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; ma
     document.addEventListener("visibilitychange", function () { if (document.hidden) clearTimeout(timer); else schedule(); });
     new IntersectionObserver(function (entries) {
       entries.forEach(function (en) {
-        if (!en.isIntersecting) return;
+        visible = en.isIntersecting;
+        if (!visible) { clearTimeout(timer); return; }
         // Load every step's screenshot now, so switching steps never shows a blank frame.
         root.querySelectorAll("img[loading=lazy]").forEach(function (img) { img.loading = "eager"; });
-        if (!seen && en.intersectionRatio >= 0.35) { seen = true; setPlaying(playing); }
+        if (!seen && en.intersectionRatio >= 0.35) { seen = true; setPlaying(playing); } else schedule();
       });
     }, { threshold: [0.05, 0.35] }).observe(root);
 

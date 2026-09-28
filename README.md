@@ -92,8 +92,9 @@ you first, every time.
 
 ## Private by design
 
-Everything Pollymetric records stays on your Mac. There's no account, no cloud and no tracking. It uses
-less than 1% CPU while it watches.
+Everything Pollymetric records is stored on your Mac. There's no account, no cloud and no tracking.
+When you use Explain or Find a Fix, only the relevant context goes to the agent you chose. It uses less
+than 1% CPU at idle.
 
 ## Install
 
