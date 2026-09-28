@@ -43,6 +43,7 @@ struct AttentionInputs {
     var lynis: LynisStatus?
     var recurring: [UsageGroup] = []
     var servers: LocalServersReport?
+    var worktrees: WorktreesReport?
     var hasFullDiskAccess = true
     var now: Date = .now
 }
@@ -128,6 +129,23 @@ enum AttentionEngine {
                     : "Started by agents that have since quit: " + left.prefix(2).map { "localhost:\($0.port)" }.joined(separator: ", "),
                 action: .dashboard(.servers)
             ))
+        }
+
+        // Copies of projects agents made for a task and never cleaned up.
+        if let report = input.worktrees {
+            let idle = report.worktrees.filter { tree in
+                !tree.isStale && tree.inUseBy.isEmpty
+                    && (tree.lastModified.map { input.now.timeIntervalSince($0) > 7 * 86_400 } ?? false)
+            }
+            let bytes = idle.reduce(Int64(0)) { $0 + $1.bytes }
+            if bytes >= reclaimableThreshold {
+                items.append(.init(
+                    id: "worktrees", severity: .suggestion, symbol: "arrow.triangle.branch",
+                    title: "\(Bytes.format(bytes)) in worktrees nobody's using",
+                    detail: "\(idle.count) extra copies of your projects, untouched for over a week.",
+                    action: .dashboard(.worktrees)
+                ))
+            }
         }
 
         if let report = input.launchItems {

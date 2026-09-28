@@ -232,6 +232,7 @@ final class AppStore {
             lynis: lynis.value,
             recurring: recurring.value ?? [],
             servers: servers.value,
+            worktrees: worktrees.value,
             hasFullDiskAccess: hasFullDiskAccess
         ))
     }
@@ -320,6 +321,7 @@ final class AppStore {
             clean.refreshIfStale()
             purge.refreshIfStale()
             launchItems.refreshIfStale()
+            worktrees.refreshIfStale()
         }
         if dashboardOpen { history.refreshIfStale() }
     }
