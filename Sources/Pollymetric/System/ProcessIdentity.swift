@@ -216,6 +216,7 @@ enum ProcessDescriber {
     ]
 
     static func describe(name: String, arguments: [String], cwd: String?) -> (label: String, context: String?) {
+        if let model = LocalModels.match(name: name, arguments: arguments) { return (model.label, nil) }
         var label = name
         var project: String?
         let lowered = name.lowercased()
@@ -278,6 +279,7 @@ enum ProcessDescriber {
     /// when there's nothing useful to say beyond the label and where it came from.
     static func explain(label: String, name: String?, app: String?) -> String? {
         let l = label.lowercased(), n = (name ?? label).lowercased()
+        if LocalModels.isLocalModel(label: label) { return "A local AI model. It keeps its weights in memory for as long as it's loaded, often many gigabytes, even while idle." }
         if l.contains("mcp") { return "An MCP server: a tool plugin that an AI client (\(app ?? "an agent")) starts and keeps running in the background." }
         if l.hasPrefix("typescript tsserver") || l == "tsserver" { return "TypeScript's language server. Your editor runs it for autocomplete and errors; large projects make it busy." }
         if l.hasPrefix("eslint") { return "The ESLint server that lints files as you edit." }
