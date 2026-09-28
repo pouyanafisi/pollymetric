@@ -42,6 +42,7 @@ struct AttentionInputs {
     var launchItems: LaunchItemsReport?
     var lynis: LynisStatus?
     var recurring: [UsageGroup] = []
+    var servers: LocalServersReport?
     var hasFullDiskAccess = true
     var now: Date = .now
 }
@@ -115,6 +116,18 @@ enum AttentionEngine {
                     action: nil
                 ))
             }
+        }
+
+        // The classic agent leftover: a dev server whose agent finished and quit.
+        if let left = input.servers?.servers.filter(\.leftRunning), let first = left.first {
+            items.append(.init(
+                id: "servers-left", severity: .warning, symbol: "network",
+                title: left.count == 1 ? "localhost:\(first.port) was left running" : "\(left.count) servers were left running",
+                detail: left.count == 1
+                    ? "\(first.what) · \(first.origin)"
+                    : "Started by agents that have since quit: " + left.prefix(2).map { "localhost:\($0.port)" }.joined(separator: ", "),
+                action: .dashboard(.servers)
+            ))
         }
 
         if let report = input.launchItems {
