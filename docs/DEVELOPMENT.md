@@ -33,6 +33,33 @@ turns amber (Fair) or red (Needs attention) only when something needs you.
 Security Audit, History. Destructive actions always show exactly what will be removed and ask for
 confirmation first.
 
+## Agent activity
+
+Three pages under **Agent Activity**, plus local-model naming, cover what agents leave behind.
+
+- **Local Servers** (`Footprint/LocalServers.swift`): listening TCP sockets read natively with libproc
+  (`PROC_PIDLISTFDS` → `PROC_PIDFDSOCKETINFO`, `TSI_S_LISTEN`), deduped across IPv4/IPv6 and forked
+  workers, attributed with the same `IdentityResolver` as Processes. Wildcard or non-loopback binds are
+  "open to your network". When a server's live parent chain has no agent (the agent quit and it was
+  re-parented to launchd), its recorded identity for the same pid + start time is looked up in history
+  (`HistoryStore.chains(forKeys:)`) and it's flagged "Left running". To make that possible the sampler
+  records every process an agent started once, when first seen, even when idle.
+- **Worktrees** (`Footprint/Worktrees.swift`): discovery reads git's own files (`.git/worktrees/*`,
+  `.git` files with `gitdir:`), never runs git to find them, across `ProjectFolders.roots` and known agent
+  locations (`<repo>/.claude/worktrees`, `<repo>/.worktrees`, `~/.codex/worktrees`, …). Sizes come from
+  `fts` under `SerialGate.heavy`. "Unsaved changes" and removal use `git` through the disclaimed launcher
+  with `-c trace2.eventTarget=0 -c core.fsmonitor=false`; removal is `git worktree remove` (forced only
+  after a second confirmation), stale entries use `git worktree prune`.
+- **Plugins & Skills** (`Footprint/AgentExtensions.swift`): read-only parsing of each agent's MCP and
+  skill configs (Claude Code incl. extra accounts, Codex TOML via a small subset parser, Cursor, Claude
+  Desktop, OpenCode, VS Code, Windsurf). Command lines are redacted, only env var *names* are kept, and
+  values are looked at only long enough to flag a plain-text key. Not exposed over MCP.
+- **Local models** (`System/LocalModels.swift`): Ollama runners are named from Ollama's manifests (the
+  weights blob digest → `model:tag`); llama.cpp, LM Studio, MLX and vLLM from the model they loaded.
+
+Agent leftovers lead "Needs attention": servers left running, keys stored in plain text, and unused
+worktrees holding 5 GB or more.
+
 ## Process history
 
 Things like a `node` that pins the CPU for 20 seconds and disappears are hard to diagnose after the

@@ -43,7 +43,7 @@ struct OnboardingView: View {
             VStack(spacing: 10) {
                 Image(nsImage: Self.icon).resizable().frame(width: 96, height: 96)
                 Text("Welcome to Pollymetric").font(.system(size: 26, weight: .semibold))
-                Text("It lives in your menu bar and keeps an eye on this Mac. A few things help it work best. All of them are optional.")
+                Text("It lives in your menu bar and shows what's running on this Mac, including what your AI agents leave behind. A few things help it work best. All of them are optional.")
                     .font(.system(size: 14)).lineSpacing(3).foregroundStyle(.secondary)
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true).frame(maxWidth: 440)
             }

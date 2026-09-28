@@ -111,9 +111,9 @@ enum InstallerArt {
                             options: [.usesLineFragmentOrigin])
         }
         text("Pollymetric", x: 96, top: 384, width: 640, size: 64, weight: .bold, alpha: 0.95, lineHeight: 1.0)
-        text("Is your Mac OK, and is there anything you should do?", x: 98, top: 290, width: 600,
+        text("See what your AI agents are doing to your Mac", x: 98, top: 290, width: 600,
              size: 34, weight: .semibold, alpha: 0.85)
-        text("See what's slowing it down, catch what keeps coming back, and let your AI agent fix it. Right in your menu bar.",
+        text("Servers they left running, copies of your projects filling the disk, local models holding memory, plugins with keys in plain text. Right in your menu bar.",
              x: 98, top: 176, width: 590, size: 22, weight: .regular, alpha: 0.55, lineHeight: 1.3)
 
         // Right: the real panel, with a soft shadow.

@@ -1,0 +1,935 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pollymetric: see what your AI agents are doing to your Mac</title>
+<meta name="description" content="AI agents start servers, copy your projects, load local models and install tools, and rarely clean up. Pollymetric shows what's running, who started it, what it costs, and what got left behind. Free and open source.">
+<meta property="og:title" content="Pollymetric: see what your AI agents are doing to your Mac">
+<meta property="og:description" content="What's running, who started it, what it's costing you, and what got left behind. A free, open-source menu bar app.">
+<meta property="og:image" content="https://pollymetric.com/img/og.png">
+<meta property="og:url" content="https://pollymetric.com">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/img/favicon.png">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<link rel="preload" href="/fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin>
+<script>
+  // Theme before first paint: ?theme=, then a saved choice, then the system's.
+  (function () {
+    var t = null;
+    try { t = new URLSearchParams(location.search).get("theme") || localStorage.getItem("theme"); } catch (e) {}
+    if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+<style>
+@font-face { font-family: "Geist"; src: url(/fonts/geist-latin.woff2) format("woff2"); font-weight: 300 700; font-display: swap; }
+@font-face { font-family: "Geist Mono"; src: url(/fonts/geist-mono-latin.woff2) format("woff2"); font-weight: 400 500; font-display: swap; }
+
+:root {
+  --page: #ffffff;
+  --ink: #0b0b0c;
+  --ink-2: #45454c;
+  --ink-3: #64646e;
+  --line: rgba(10, 10, 20, 0.09);
+  --soft: #f4f4f6;
+  --soft-2: #ebebef;
+  --chip: #ffffff;
+  --shadow: 0 1px 2px rgba(15, 15, 30, 0.04), 0 12px 32px -10px rgba(15, 15, 30, 0.16);
+  --shadow-lg: 0 2px 4px rgba(15, 15, 30, 0.04), 0 30px 70px -24px rgba(15, 15, 30, 0.32);
+  --green: #2fbf71;
+  --green-text: #177b46;
+  --amber: #d9730f;
+  --amber-bg: rgba(224, 125, 24, 0.13);
+  --blue: #3b5bfd;
+  --btn: #111113;
+  --btn-ink: #ffffff;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --page: #0e0e11;
+  --ink: #f3f3f5;
+  --ink-2: #bdbdc5;
+  --ink-3: #9696a0;
+  --line: rgba(255, 255, 255, 0.1);
+  --soft: #18181d;
+  --soft-2: #222228;
+  --chip: #1c1c21;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -10px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.3), 0 30px 70px -24px rgba(0, 0, 0, 0.8);
+  --green-text: #65d99a;
+  --amber: #f5a04a;
+  --amber-bg: rgba(245, 160, 74, 0.15);
+  --btn: #f3f3f5;
+  --btn-ink: #0b0b0c;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0; background: var(--page); color: var(--ink); overflow-x: clip;
+  font: 16px/1.55 "Geist", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+img { display: block; max-width: 100%; height: auto; }
+a { color: inherit; text-decoration: none; }
+h1, h2, h3 { font-weight: 400; letter-spacing: -0.035em; margin: 0; text-wrap: balance; }
+p { text-wrap: pretty; }
+.theme-dark-only { display: none !important; }
+:root[data-theme="dark"] .theme-dark-only { display: block !important; }
+:root[data-theme="dark"] .theme-light-only { display: none !important; }
+:root[data-theme="dark"] .mono { filter: invert(1) brightness(1.1); }
+.wrap { max-width: 1240px; margin-inline: auto; padding-inline: 56px; }
+section { padding-top: 128px; scroll-margin-top: 40px; }
+.section-head { text-align: center; max-width: 680px; margin: 0 auto; }
+.section-head h2, .split h2 { font-size: clamp(34px, 4vw, 52px); line-height: 1.06; }
+.section-head p { color: var(--ink-2); margin: 16px 0 0; font-size: 17px; }
+.eyebrow { display: inline-block; font-size: 13px; font-weight: 500; color: var(--ink-2); padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; margin-bottom: 18px; }
+.example { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 18px; border-radius: 999px;
+  font: 500 14px/1 "Geist", sans-serif; border: 1px solid transparent; cursor: pointer; white-space: nowrap;
+  transition: transform .15s ease, opacity .2s ease, background-color .2s ease;
+}
+.btn:active { transform: scale(0.98); }
+.btn-dark { background: var(--btn); color: var(--btn-ink); }
+.btn-dark:hover { opacity: .88; }
+.btn-line { border-color: var(--ink); color: var(--ink); background: transparent; }
+.btn-line:hover { background: var(--soft); }
+.btn-lg { height: 48px; padding: 0 24px; font-size: 15px; }
+.btn svg { width: 16px; height: 16px; }
+.icon-btn {
+  width: 40px; height: 40px; border-radius: 999px; border: 1px solid var(--line); background: transparent;
+  color: var(--ink); display: grid; place-items: center; cursor: pointer; transition: background-color .2s ease; flex: none;
+}
+.icon-btn:hover { background: var(--soft); }
+.icon-btn svg { width: 18px; height: 18px; }
+.theme-toggle .sun { display: none; }
+:root[data-theme="dark"] .theme-toggle .sun { display: block; }
+:root[data-theme="dark"] .theme-toggle .moon { display: none; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+
+/* Nav */
+.navbar {
+  position: sticky; top: 0; z-index: 50; background: color-mix(in srgb, var(--page) 80%, transparent);
+  backdrop-filter: saturate(1.6) blur(18px); -webkit-backdrop-filter: saturate(1.6) blur(18px);
+  border-bottom: 1px solid transparent; transition: border-color .2s ease;
+}
+.navbar.scrolled { border-bottom-color: var(--line); }
+nav.top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; padding: 14px 40px; max-width: 1240px; margin: 0 auto; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 18px; letter-spacing: -0.01em; }
+.brand img { width: 24px; height: 24px; }
+:root[data-theme="dark"] .brand img { filter: invert(1); }
+.links { display: flex; gap: 30px; font-size: 14px; color: var(--ink-2); }
+.links a:hover { color: var(--ink); }
+.actions { display: flex; gap: 8px; align-items: center; justify-self: end; }
+
+/* Hero */
+.hero { text-align: center; padding: 64px 24px 0; }
+.hero h1 { font-size: clamp(42px, 6vw, 76px); line-height: 1.02; max-width: 980px; margin: 0 auto; }
+.hero .lede { max-width: 620px; margin: 24px auto 0; color: var(--ink-2); font-size: 18px; }
+.hero .cta { display: flex; justify-content: center; gap: 12px; margin-top: 30px; flex-wrap: wrap; }
+.meta { margin-top: 16px; font-size: 13px; color: var(--ink-3); line-height: 1.7; }
+.meta a { color: var(--ink-2); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.meta a:hover { text-decoration-color: currentColor; }
+
+.stage { max-width: 1128px; margin: 52px auto 0; }
+.desk {
+  position: relative; height: 660px; border-radius: 22px; overflow: hidden; text-align: left;
+  background:
+    radial-gradient(120% 90% at 85% 0%, #dfe6ff 0%, transparent 55%),
+    radial-gradient(90% 80% at 0% 100%, #fbe9dc 0%, transparent 60%),
+    linear-gradient(180deg, #eef0f7, #f6f4f1);
+  border: 1px solid var(--line); box-shadow: var(--shadow-lg);
+}
+:root[data-theme="dark"] .desk {
+  background:
+    radial-gradient(120% 90% at 85% 0%, #1f2747 0%, transparent 55%),
+    radial-gradient(90% 80% at 0% 100%, #2b1c18 0%, transparent 60%),
+    linear-gradient(180deg, #15161c, #101114);
+}
+.menubar {
+  height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px;
+  font-size: 13.5px; color: #111; background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06); position: relative; z-index: 3;
+}
+:root[data-theme="dark"] .menubar { color: #f2f2f4; background: rgba(30, 30, 36, 0.6); border-bottom-color: rgba(255, 255, 255, 0.06); }
+.mb-left, .mb-right { display: flex; align-items: center; gap: 18px; }
+.mb-right { gap: 14px; }
+.mb-left b { font-weight: 700; }
+.apple { width: 15px; height: 15px; margin-top: -2px; }
+.mb-ic { width: 17px; height: 17px; opacity: .85; }
+.mb-ic.batt { width: 26px; }
+.mb-clock { font-variant-numeric: tabular-nums; }
+.mb-item { position: relative; display: flex; }
+.mb-polly {
+  width: 32px; height: 24px; border-radius: 6px; border: 0; background: transparent; cursor: pointer;
+  display: grid; place-items: center; padding: 0; transition: background-color .15s ease;
+}
+.mb-polly img { width: 16px; height: 16px; }
+:root[data-theme="dark"] .mb-polly img { filter: invert(1); }
+.mb-polly:hover, .mb-polly.on { background: rgba(0, 0, 0, 0.1); }
+:root[data-theme="dark"] .mb-polly:hover, :root[data-theme="dark"] .mb-polly.on { background: rgba(255, 255, 255, 0.16); }
+.mb-panel {
+  position: absolute; top: 30px; left: 50%; width: 314px; transform: translateX(-50%); transform-origin: 50% 0;
+  filter: drop-shadow(0 30px 45px rgba(20, 20, 50, 0.3)); transition: opacity .18s ease, transform .18s ease;
+}
+.mb-panel.closed { opacity: 0; transform: translateX(-50%) scale(.96) translateY(-6px); pointer-events: none; }
+.try {
+  position: absolute; right: calc(100% + 10px); top: 50%; transform: translateY(-50%); white-space: nowrap;
+  font-size: 12px; font-weight: 500; color: var(--btn-ink); background: var(--btn); padding: 4px 9px; border-radius: 6px;
+  display: flex; align-items: center; gap: 5px; pointer-events: none; transition: opacity .3s ease;
+}
+.try svg { width: 12px; height: 12px; }
+.try.gone { opacity: 0; }
+
+.chip {
+  position: absolute; background: var(--chip); border-radius: 16px; box-shadow: var(--shadow-lg);
+  padding: 12px 14px; font-size: 13px; line-height: 1.4; text-align: left; border: 1px solid var(--line); max-width: 300px;
+}
+.chip b { font-weight: 600; font-size: 13.5px; display: block; }
+.chip span { color: var(--ink-3); }
+.chip .row { display: flex; align-items: center; gap: 11px; }
+.chip .ico { width: 30px; height: 30px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--amber-bg); color: var(--amber); }
+.chip .ico svg { width: 15px; height: 15px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.tag { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.tag-amber { background: var(--amber-bg); color: var(--amber); }
+.tag-green { background: rgba(47, 191, 113, 0.14); color: var(--green-text); }
+
+/* The problem */
+.problems { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 52px; }
+.problem { border-radius: 22px; background: var(--soft); padding: 24px; display: flex; flex-direction: column; }
+.problem .ic { width: 38px; height: 38px; border-radius: 11px; background: var(--chip); border: 1px solid var(--line); display: grid; place-items: center; color: var(--ink-2); }
+.problem .ic svg { width: 19px; height: 19px; }
+.problem h3 { font-size: 20px; letter-spacing: -0.02em; margin-top: 18px; }
+.problem p { color: var(--ink-2); font-size: 15.5px; line-height: 1.5; margin: 8px 0 0; }
+.problem .fix { margin-top: auto; padding-top: 18px; font-size: 14.5px; color: var(--ink); border-top: 1px solid var(--line); }
+.problem .fix b { display: block; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--green-text); margin-bottom: 4px; }
+.problem .fix-wrap { margin-top: 18px; }
+
+/* Before / after */
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 48px; }
+.pane { border-radius: 24px; background: var(--soft); padding: 26px; }
+.pane h3 { font-size: 18px; letter-spacing: -0.02em; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.pane .rows { margin-top: 18px; background: var(--chip); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.pane .r { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--line); align-items: center; font-size: 14.5px; }
+.pane .r:first-child { border-top: 0; }
+.pane .r small { display: block; color: var(--ink-3); font-size: 12.5px; margin-top: 2px; }
+.pane .num { font-family: "Geist Mono", monospace; font-size: 13px; color: var(--ink-2); }
+.pane.before .r { font-family: "Geist Mono", monospace; font-size: 13.5px; color: var(--ink-2); }
+.pane.after { box-shadow: inset 0 0 0 1px var(--line); }
+.pane p { color: var(--ink-2); margin: 16px 0 0; font-size: 15.5px; }
+
+/* Tour */
+.tour { margin-top: 44px; }
+.tour-bar { display: flex; align-items: center; gap: 16px; }
+.tabs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; flex: 1; }
+.tab {
+  text-align: left; background: none; border: 0; padding: 0; cursor: pointer; color: var(--ink-3); min-height: 44px;
+  font: 500 14px/1.3 "Geist", sans-serif;
+}
+.tab .n { font-family: "Geist Mono", monospace; font-size: 12px; margin-right: 4px; }
+.tab[aria-selected="true"] { color: var(--ink); }
+.tab .bar { height: 3px; background: var(--soft-2); border-radius: 9px; margin-bottom: 10px; overflow: hidden; }
+.tab .bar i { display: block; height: 100%; width: 0; background: var(--ink); }
+.tab.done .bar i { width: 100%; }
+.tour.playing .tab[aria-selected="true"] .bar i { animation: fill var(--tour-ms, 8000ms) linear forwards; }
+.tour:not(.playing) .tab[aria-selected="true"] .bar i { width: 100%; }
+.tour.playing.hovering .tab[aria-selected="true"] .bar i { animation-play-state: paused; }
+@keyframes fill { from { width: 0; } to { width: 100%; } }
+.frame { margin-top: 22px; border-radius: 26px; background: var(--soft); padding: 40px; min-height: 720px; display: grid; place-items: center; }
+.slide { width: 100%; text-align: center; }
+.slide[hidden] { display: none; }
+.slide:not([hidden]) { animation: fade .4s ease; }
+@media (prefers-reduced-motion: reduce) { .slide:not([hidden]) { animation: none; } }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.scroller { max-width: 100%; }
+.shot { position: relative; display: inline-block; }
+.shot img { display: block; }
+.shot img.win { border-radius: 14px; box-shadow: var(--shadow-lg); max-height: 580px; width: auto; }
+.shot img.narrow { max-height: 600px; width: auto; filter: drop-shadow(0 24px 40px rgba(20, 20, 50, 0.25)); }
+.caption { color: var(--ink-2); font-size: 16px; margin: 22px auto 0; max-width: 640px; }
+.hs {
+  position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; border: 0; cursor: pointer;
+  background: var(--blue); color: #fff; font: 600 12px/26px "Geist", sans-serif; box-shadow: 0 0 0 4px rgba(59, 91, 253, 0.22); padding: 0; z-index: 2;
+}
+.hs::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--blue); opacity: 0; }
+.slide.intro .hs::after { animation: ping 1.8s ease-out 2; }
+@keyframes ping { 0% { transform: scale(1); opacity: .6; } 100% { transform: scale(2); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .slide.intro .hs::after { animation: none; } }
+.hs .tip {
+  position: absolute; left: 50%; bottom: calc(100% + 12px); transform: translateX(-50%); width: 240px; text-align: left;
+  background: var(--chip); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--shadow-lg); border-radius: 12px;
+  padding: 10px 12px; font: 400 13.5px/1.45 "Geist", sans-serif; opacity: 0; pointer-events: none; transition: opacity .15s ease;
+}
+.hs .tip b { display: block; font-weight: 600; margin-bottom: 2px; }
+.hs.below .tip { bottom: auto; top: calc(100% + 12px); }
+.hs:hover .tip, .hs:focus-visible .tip, .hs.open .tip { opacity: 1; }
+.hs:hover, .hs.open, .hs:focus-visible { z-index: 3; }
+.tips { display: none; }
+
+/* Agents */
+.agents { margin-top: 60px; text-align: center; }
+.agents p { margin: 0; font-size: 18px; }
+.agents small { display: block; color: var(--ink-3); font-size: 14px; margin-top: 6px; }
+.strip { display: flex; align-items: center; justify-content: center; gap: 44px; flex-wrap: wrap; margin-top: 26px; }
+.strip .logo { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 16px; letter-spacing: -0.01em; color: var(--ink-2); }
+.strip .logo img { width: 22px; height: 22px; }
+
+/* Everyday upkeep */
+.split { display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: end; }
+.split p { color: var(--ink-2); margin: 0; font-size: 17px; }
+.cards3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 48px; }
+.feat .icon { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line); display: grid; place-items: center; color: var(--ink-2); }
+.feat .icon svg { width: 18px; height: 18px; }
+.feat h3 { font-size: 22px; letter-spacing: -0.02em; margin-top: 18px; }
+.feat p { color: var(--ink-2); font-size: 16px; line-height: 1.5; margin: 8px 0 0; min-height: 48px; }
+.mini { margin-top: 18px; height: 200px; border-radius: 20px; background: var(--soft); position: relative; display: grid; place-items: center; }
+.mini .example { position: absolute; top: 14px; left: 16px; }
+.mini .card { background: var(--chip); border-radius: 14px; box-shadow: var(--shadow); padding: 14px 16px; width: 80%; font-size: 13.5px; border: 1px solid var(--line); }
+.bar2 { height: 8px; border-radius: 99px; background: var(--soft-2); overflow: hidden; margin-top: 8px; }
+.bar2 i { display: block; height: 100%; border-radius: 99px; }
+.li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+.li:first-child { border-top: 0; }
+.muted { color: var(--ink-3); }
+.check { display: flex; gap: 10px; align-items: center; padding: 5px 0; }
+.check i { width: 16px; height: 16px; border-radius: 50%; flex: none; display: grid; place-items: center; font-style: normal; font-size: 10px; color: #fff; }
+
+/* Bento */
+.bento { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 20px; margin-top: 48px; }
+.tile { border-radius: 24px; background: var(--soft); padding: 28px; position: relative; overflow: hidden; }
+.tile h3 { font-size: 21px; letter-spacing: -0.02em; }
+.tile p { color: var(--ink-2); font-size: 16px; line-height: 1.5; margin: 8px 0 0; }
+.tile.big { grid-row: span 2; display: flex; flex-direction: column; justify-content: space-between; min-height: 460px; }
+.tile.big .num { font-size: clamp(72px, 9vw, 120px); letter-spacing: -0.055em; line-height: .95; }
+.tile.big .num small { display: block; font-size: 22px; letter-spacing: -0.02em; margin-top: 12px; color: var(--ink-2); }
+.tile.wide { grid-column: span 2; display: grid; grid-template-columns: 1fr 1.15fr; gap: 24px; align-items: center; }
+.tile.dark { background: #0b0b0e; color: #f3f3f5; }
+:root[data-theme="dark"] .tile.dark { background: #000; box-shadow: inset 0 0 0 1px var(--line); }
+.tile.dark p { color: #a9a9b2; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.pills span { font-size: 13px; font-weight: 500; padding: 7px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); color: #f3f3f5; display: flex; align-items: center; gap: 6px; }
+.pills span::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+.bars { display: flex; align-items: flex-end; gap: 6px; height: 104px; margin-top: 22px; }
+.bars i { flex: 1; border-radius: 6px 6px 3px 3px; background: var(--soft-2); }
+.bars i.hot { background: var(--amber); }
+.crop { height: 250px; border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); background: var(--chip); }
+.crop img { width: 175%; max-width: none; margin-left: -22%; margin-top: -2%; }
+
+/* Install */
+.steps { display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 20px; margin-top: 48px; align-items: start; }
+.step-card { border-radius: 24px; background: var(--soft); height: 320px; display: grid; place-items: center; overflow: hidden; }
+.step-card.main { background: var(--soft-2); }
+.step-card.main img { width: 58%; border-radius: 12px; box-shadow: var(--shadow-lg); margin-top: 70px; }
+.drag { width: 72%; background: var(--chip); border-radius: 16px; box-shadow: var(--shadow); padding: 22px; display: flex; justify-content: space-around; align-items: center; border: 1px solid var(--line); }
+.drag img { width: 60px; height: 60px; }
+.drag svg { width: 36px; color: var(--ink-3); }
+.mbstep { width: 80%; display: flex; flex-direction: column; align-items: flex-end; }
+.badge { width: 36px; height: 36px; border-radius: 9px; background: var(--chip); box-shadow: var(--shadow); border: 1px solid var(--line); display: grid; place-items: center; }
+.badge img { width: 18px; height: 18px; }
+:root[data-theme="dark"] .badge img { filter: invert(1); }
+.mbstep .chip { position: static; margin-top: 16px; }
+.step-label { display: flex; gap: 12px; margin-top: 18px; align-items: baseline; }
+.step-label .n { width: 26px; height: 26px; border: 1px solid var(--line); border-radius: 8px; display: grid; place-items: center; font-size: 13px; flex: none; }
+.step-label h3 { font-size: 20px; letter-spacing: -0.02em; }
+.step-label p { color: var(--ink-2); font-size: 16px; line-height: 1.5; margin: 6px 0 0; }
+.note { margin-top: 28px; border-radius: 16px; background: var(--soft); padding: 16px 20px; font-size: 15px; color: var(--ink-2); display: flex; gap: 12px; align-items: flex-start; scroll-margin-top: 90px; }
+.note svg { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--amber); }
+.note b { color: var(--ink); font-weight: 600; }
+
+/* CTA band */
+.band {
+  max-width: 1200px; margin: 136px auto 0; border-radius: 30px; background: #09090b; color: #f3f3f5; position: relative; overflow: hidden;
+  display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; padding: 72px 60px; min-height: 440px;
+}
+:root[data-theme="dark"] .band { background: #000; box-shadow: inset 0 0 0 1px var(--line); }
+.band h2 { font-size: clamp(36px, 4.4vw, 56px); line-height: 1.04; }
+.band p { color: #a9a9b2; max-width: 460px; margin: 18px 0 0; font-size: 17px; }
+.band .cta { display: flex; gap: 12px; margin-top: 30px; flex-wrap: wrap; }
+.band .btn-dark { background: #f3f3f5; color: #0b0b0c; }
+.band .btn-line { border-color: #f3f3f5; color: #f3f3f5; }
+.band .btn-line:hover { background: rgba(255, 255, 255, 0.08); }
+.band .curves { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.band .visual { position: relative; }
+.band .visual img { position: absolute; width: 270px; right: 70px; top: -24px; transform: rotate(5deg); filter: drop-shadow(0 30px 50px rgba(0, 0, 0, .6)); }
+
+/* Footer */
+footer { display: grid; grid-template-columns: 1.15fr 1.25fr .9fr; gap: 20px; max-width: 1240px; margin: 20px auto 0; padding: 0 20px 28px; }
+.fcard { background: var(--soft); border-radius: 24px; padding: 28px; }
+.fcard h2 { font-size: 30px; line-height: 1.1; }
+.fcard .sub { color: var(--ink-2); margin: 12px 0 0; font-size: 15px; }
+.fcols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 14.5px; }
+.fcols h4, .fcard h4 { margin: 0 0 12px; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; }
+.fcols a { display: block; padding: 5px 0; color: var(--ink-2); }
+.fcols a:hover { color: var(--ink); }
+.fsmall { font-size: 12.5px; color: var(--ink-3); margin-top: 26px; }
+.fcard .link { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; font-weight: 500; font-size: 15px; }
+.fcard .link svg { width: 18px; height: 18px; }
+
+/* Tablets and phones */
+@media (max-width: 1080px) {
+  .problems { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 960px) {
+  .wrap { padding-inline: 20px; }
+  nav.top { padding: 12px 20px; grid-template-columns: minmax(0, 1fr) auto; }
+  .links { display: none; }
+  .stage { margin-inline: 20px; }
+  .desk { height: 600px; border-radius: 16px; }
+  .desk .chip, .mb-menus, .mb-ic, .mb-left b, .try { display: none; }
+  .mb-panel { width: 290px; left: auto; right: -64px; transform: none; }
+  .mb-panel.closed { transform: scale(.96) translateY(-6px); }
+  .compare, .split, .cards3, .steps, footer { grid-template-columns: 1fr; }
+  .bento { grid-template-columns: 1fr; }
+  .tile.big { grid-row: auto; min-height: 280px; }
+  .tile.wide { grid-column: auto; grid-template-columns: 1fr; }
+  .tour-bar { align-items: flex-start; }
+  .tabs { display: flex; overflow-x: auto; gap: 8px; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: none; min-width: 104px; }
+  .frame { padding: 16px 0 20px; min-height: 0; display: block; }
+  .scroller { overflow-x: auto; padding: 8px 16px 16px; -webkit-overflow-scrolling: touch; }
+  .shot img.win { max-height: none; width: 860px; max-width: none; }
+  .shot img.narrow { max-height: 520px; }
+  .shot.wide { display: block; width: max-content; }
+  .hs .tip { display: none; }
+  .tips { display: block; text-align: left; list-style: none; margin: 14px 16px 0; padding: 0; }
+  .tips li { display: flex; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14.5px; color: var(--ink-2); }
+  .tips li:first-child { border-top: 0; }
+  .tips li b { color: var(--ink); font-weight: 600; }
+  .tips .k { width: 22px; height: 22px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 11.5px; font-weight: 600; display: grid; place-items: center; flex: none; }
+  .scroll-hint { display: block; font-size: 12.5px; color: var(--ink-3); margin-top: 4px; }
+  .band { grid-template-columns: 1fr; padding: 48px 24px; margin: 96px 20px 0; }
+  .band .visual { display: none; }
+  footer { padding: 0 20px 24px; }
+}
+@media (min-width: 961px) { .scroll-hint { display: none; } }
+@media (max-width: 600px) {
+  section { padding-top: 76px; }
+  .hero { padding-top: 40px; }
+  .brand { font-size: 16px; gap: 7px; }
+  .actions { gap: 6px; }
+  .actions .btn { padding: 0 14px; }
+  .problems { grid-template-columns: 1fr; }
+  .step-card { height: 220px; }
+  .step-card.main img { width: 64%; margin-top: 50px; }
+}
+</style>
+</head>
+<body>
+
+<div class="navbar"><nav class="top" aria-label="Main">
+  <a class="brand" href="/"><img src="/img/logo.svg" alt="">Pollymetric</a>
+  <div class="links">
+    <a href="#problem">Why</a>
+    <a href="#tour">See it work</a>
+    <a href="#features">Features</a>
+    <a href="#install">Install</a>
+  </div>
+  <div class="actions">
+    <button class="theme-toggle icon-btn" type="button" aria-label="Switch between light and dark">
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/></svg>
+    </button>
+    <a class="icon-btn" href="https://github.com/pouyanafisi/pollymetric" aria-label="Pollymetric on GitHub">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.6 2 12.2c0 4.5 2.9 8.3 6.8 9.7.5.1.7-.2.7-.5v-1.8c-2.8.6-3.4-1.2-3.4-1.2-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 2.9.8.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5A10.1 10.1 0 0 0 22 12.2C22 6.6 17.5 2 12 2z"/></svg>
+    </a>
+    <a class="btn btn-dark" href="https://github.com/pouyanafisi/pollymetric/releases/latest/download/Pollymetric.dmg">Download</a>
+  </div>
+</nav></div>
+
+<main>
+  <header class="hero">
+    <h1>See what your AI agents are doing to your Mac</h1>
+    <p class="lede">Agents start servers, copy your projects, load local models and install tools, and rarely clean up. Pollymetric shows what's running, who started it, what it's costing you, and what got left behind.</p>
+    <div class="cta">
+      <a class="btn btn-dark btn-lg" href="https://github.com/pouyanafisi/pollymetric/releases/latest/download/Pollymetric.dmg">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.2 1-4 2.5-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8 0 0-2.5-1-2.5-4zM14 5.4c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.1-.6 2.8-1.4z"/></svg>
+        Download for Mac
+      </a>
+      <a class="btn btn-line btn-lg" href="https://github.com/pouyanafisi/pollymetric">View on GitHub</a>
+    </div>
+    <div class="meta">Free and open source · macOS 14 or later · Apple silicon and Intel<br>
+      Early release: <a href="#first-open">needs "Open Anyway" the first time you open it</a></div>
+
+    <div class="stage">
+      <div class="desk">
+        <div class="menubar">
+          <div class="mb-left" aria-hidden="true">
+            <svg class="apple" viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.2 1-4 2.5-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8 0 0-2.5-1-2.5-4zM14 5.4c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.1-.6 2.8-1.4z"/></svg>
+            <b>Finder</b><span class="mb-menus">File</span><span class="mb-menus">Edit</span><span class="mb-menus">View</span><span class="mb-menus">Go</span><span class="mb-menus">Window</span><span class="mb-menus">Help</span>
+          </div>
+          <div class="mb-right">
+            <div class="mb-item">
+              <span class="try" aria-hidden="true">Try it <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6h8M7 3l3 3-3 3"/></svg></span>
+              <button class="mb-polly on" type="button" aria-expanded="true" aria-controls="hero-panel" aria-label="Pollymetric in the menu bar. Show or hide its panel.">
+                <img src="/img/logo.svg" alt="">
+              </button>
+              <div class="mb-panel" id="hero-panel">
+                <img class="theme-light-only" src="/img/panel-light.webp" alt="The Pollymetric panel: a server left running by an agent, a key stored in plain text, 14 GB in unused worktrees, and what's using the Mac" width="772" height="1462">
+                <img class="theme-dark-only" src="/img/panel-dark.webp" alt="The Pollymetric panel in dark mode" width="772" height="1462">
+              </div>
+            </div>
+            <svg class="mb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.3" r=".8" fill="currentColor"/></svg>
+            <svg class="mb-ic batt" viewBox="0 0 30 14" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="1" y="1" width="24" height="12" rx="3.5"/><rect x="3" y="3" width="17" height="8" rx="2" fill="currentColor" stroke="none"/><path d="M27.5 5v4" stroke-linecap="round"/></svg>
+            <span class="mb-clock" aria-hidden="true">Wed Sep 30&nbsp;&nbsp;9:41 AM</span>
+          </div>
+        </div>
+        <div class="chip" style="left:5%;top:120px">
+          <div class="row"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span>
+          <div><b>localhost:3000 was left running</b><span>Claude Code quit 3 days ago</span></div></div>
+        </div>
+        <div class="chip" style="left:8%;top:268px">
+          <div class="row"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="5" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><path d="M6 7v2a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7M12 12v5"/></svg></span>
+          <div><b>14 GB in unused worktrees</b><span>4 project copies untouched for a week</span></div></div>
+        </div>
+        <div class="chip" style="left:4%;top:416px">
+          <div class="row"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/></svg></span>
+          <div><b>Ollama · llama3.1:8b</b><span>holding 6.5 GB of memory while idle</span></div></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section id="problem" class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Why it exists</span>
+      <h2>Agents do the work. Your Mac pays for it.</h2>
+      <p>Every task an agent takes on can leave something behind. None of it is labelled, and none of it shows up where you'd look.</p>
+    </div>
+    <div class="problems">
+      <div class="problem">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></div>
+        <h3>Servers nobody stopped</h3>
+        <p>Dev servers and watchers keep running after the agent that started them is done, holding ports, memory and battery.</p>
+        <div class="fix-wrap"><div class="fix"><b>Pollymetric</b>Every server, who started it, how long it's been up, and whether your network can reach it.</div></div>
+      </div>
+      <div class="problem">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="6" cy="5" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><path d="M6 7v2a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7M12 12v5"/></svg></div>
+        <h3>Copies filling your disk</h3>
+        <p>Agents make a fresh copy of your project for each task. Each one carries its own dependencies and builds, often gigabytes, and few get removed.</p>
+        <div class="fix-wrap"><div class="fix"><b>Pollymetric</b>Every copy, the space it holds, when it was last touched, and a safe way to remove it.</div></div>
+      </div>
+      <div class="problem">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9zM9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg></div>
+        <h3>Memory you can't account for</h3>
+        <p>A local model keeps gigabytes in memory for as long as it's loaded, even while it sits idle. Your Mac just calls it "ollama".</p>
+        <div class="fix-wrap"><div class="fix"><b>Pollymetric</b>Each process named by what it really is, including which model is loaded and how much it's holding.</div></div>
+      </div>
+      <div class="problem">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M12 9v4M12 16v.01" stroke-linecap="round"/></svg></div>
+        <h3>Access you never reviewed</h3>
+        <p>Plugins and skills give agents new abilities, and some run whatever a registry serves that day or keep your keys in plain text.</p>
+        <div class="fix-wrap"><div class="fix"><b>Pollymetric</b>What each agent has been given, what it runs, and anything worth a second look.</div></div>
+      </div>
+    </div>
+
+    <div class="compare">
+      <div class="pane before">
+        <h3>What your Mac tells you <span class="example">Example</span></h3>
+        <div class="rows">
+          <div class="r"><span>node</span><span class="num">301%</span></div>
+          <div class="r"><span>ollama</span><span class="num">6.5 GB</span></div>
+          <div class="r"><span>node</span><span class="num">612 MB</span></div>
+          <div class="r"><span>python3.12</span><span class="num">96 MB</span></div>
+        </div>
+        <p>Which project? Which agent? Is it still needed?</p>
+      </div>
+      <div class="pane after">
+        <h3>What Pollymetric tells you <span class="example">Example</span></h3>
+        <div class="rows">
+          <div class="r"><div>tsup --watch in storefront <small>started by Claude Code · rebuilding in a loop</small></div><span class="tag tag-amber">16 flare-ups</span></div>
+          <div class="r"><div>Ollama · llama3.1:8b <small>a local model, loaded 9 days ago</small></div><span class="num">6.5 GB</span></div>
+          <div class="r"><div>next dev in storefront <small>Claude Code has quit; this is still running</small></div><span class="tag tag-amber">Left running</span></div>
+          <div class="r"><div>uvicorn in api <small>started by Claude Code in iTerm2</small></div><span class="num">96 MB</span></div>
+        </div>
+        <p>Named by what it is and who started it, with two weeks of history behind it.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="tour" class="wrap">
+    <div class="section-head">
+      <h2>See it work</h2>
+      <p>From a glance at the menu bar to what got left behind, and a fix you approve.</p>
+    </div>
+    <div class="tour" data-tour>
+      <div class="tour-bar">
+        <div class="tabs" role="tablist" aria-label="Product tour">
+          <button class="tab" role="tab" id="tab-1" aria-controls="slide-1" aria-selected="true"><div class="bar"><i></i></div><span class="n">01</span>Glance</button>
+          <button class="tab" role="tab" id="tab-2" aria-controls="slide-2" aria-selected="false" tabindex="-1"><div class="bar"><i></i></div><span class="n">02</span>Servers</button>
+          <button class="tab" role="tab" id="tab-3" aria-controls="slide-3" aria-selected="false" tabindex="-1"><div class="bar"><i></i></div><span class="n">03</span>Worktrees</button>
+          <button class="tab" role="tab" id="tab-4" aria-controls="slide-4" aria-selected="false" tabindex="-1"><div class="bar"><i></i></div><span class="n">04</span>Plugins</button>
+          <button class="tab" role="tab" id="tab-5" aria-controls="slide-5" aria-selected="false" tabindex="-1"><div class="bar"><i></i></div><span class="n">05</span>Explain</button>
+          <button class="tab" role="tab" id="tab-6" aria-controls="slide-6" aria-selected="false" tabindex="-1"><div class="bar"><i></i></div><span class="n">06</span>Approve</button>
+        </div>
+        <button class="icon-btn play" type="button" aria-label="Pause the tour">
+          <svg class="i-pause" viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></svg>
+          <svg class="i-play" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10.4-6.5a1 1 0 0 0 0-1.8L9.5 4.6A1 1 0 0 0 8 5.5z"/></svg>
+        </button>
+      </div>
+      <div class="frame">
+        <div class="slide" role="tabpanel" id="slide-1" aria-labelledby="tab-1" data-tips='[[100,8,"Your Mac&apos;s health","One score. It turns amber or red only when something needs you."],[100,25,"What needs you","Leftovers first: a server nobody stopped, a key in plain text, space held by old copies."],[100,49,"The basics","CPU, memory, disk and battery, one glance each."],[100,74,"What&apos;s using your Mac","Named by what it is and who started it."]]'>
+          <div class="scroller"><div class="shot">
+            <img class="narrow theme-light-only" src="/img/panel-light.webp" alt="The menu bar panel with three things that need attention" width="772" height="1462">
+            <img class="narrow theme-dark-only" src="/img/panel-dark.webp" alt="The menu bar panel in dark mode" width="772" height="1462">
+          </div></div>
+          <p class="caption">One glance tells you what needs you, starting with what agents left behind.</p>
+        </div>
+        <div class="slide" role="tabpanel" id="slide-2" aria-labelledby="tab-2" hidden data-tips='[[46,27,"Everything listening","Every server on your Mac, grouped by the agent or app that started it."],[55.5,43,"Left running","The agent that started it has quit. Pollymetric remembers who it was."],[56.5,67,"Open to your network","Other machines on your Wi-Fi can reach this one."],[92.5,44,"Open or quit","Check what it is in your browser, or stop it."]]'>
+          <div class="scroller"><div class="shot wide">
+            <img class="win theme-light-only" src="/img/servers-light.webp" alt="Local Servers: what's listening, who started it, and one left running after Claude Code quit" width="1600" height="1003" loading="lazy">
+            <img class="win theme-dark-only" src="/img/servers-dark.webp" alt="Local Servers in dark mode" width="1600" height="1003" loading="lazy">
+          </div></div>
+          <span class="scroll-hint">Swipe to see the whole window</span>
+          <p class="caption">Every server on your Mac, who started it, and the ones nobody stopped.</p>
+        </div>
+        <div class="slide" role="tabpanel" id="slide-3" aria-labelledby="tab-3" hidden data-tips='[[42,26,"Space held by copies","Across every project, with how many have gone untouched."],[46,45,"Who made it","The agent that created each copy, when it can tell."],[26,53.5,"Last touched","Old copies are the safe ones to clear."],[92,52,"Remove safely","Your branch stays. Anything unsaved gets a clear warning first."]]'>
+          <div class="scroller"><div class="shot wide">
+            <img class="win theme-light-only" src="/img/worktrees-light.webp" alt="Worktrees: extra copies of projects that agents created, and the space they hold" width="1600" height="1003" loading="lazy">
+            <img class="win theme-dark-only" src="/img/worktrees-dark.webp" alt="Worktrees in dark mode" width="1600" height="1003" loading="lazy">
+          </div></div>
+          <span class="scroll-hint">Swipe to see the whole window</span>
+          <p class="caption">The copies agents made of your projects, and the space you can get back.</p>
+        </div>
+        <div class="slide" role="tabpanel" id="slide-4" aria-labelledby="tab-4" hidden data-tips='[[41,49,"Running now","Which plugins are active at this moment."],[28.8,56,"Runs the latest","It fetches and runs whatever version a registry serves each time it starts."],[57.3,56,"Key in plain text","Anything that can read this file can use the key."],[92,33,"Worth a look","Filter down to just the items with a flag."]]'>
+          <div class="scroller"><div class="shot wide">
+            <img class="win theme-light-only" src="/img/plugins-light.webp" alt="Plugins and Skills: what each agent can use, with anything worth a second look flagged" width="1600" height="1003" loading="lazy">
+            <img class="win theme-dark-only" src="/img/plugins-dark.webp" alt="Plugins and Skills in dark mode" width="1600" height="1003" loading="lazy">
+          </div></div>
+          <span class="scroll-hint">Swipe to see the whole window</span>
+          <p class="caption">What your agents have been given, and anything worth a second look.</p>
+        </div>
+        <div class="slide" role="tabpanel" id="slide-5" aria-labelledby="tab-5" hidden data-tips='[[26,27,"It shows its work","Every step your agent took, tucked away until you want it."],[21,35,"A plan you can follow","What it&apos;s checking, ticked off as it goes."],[21,88,"The fix","Concrete steps, specific to your project."],[65,12,"Answered, nothing changed","It explains before it touches anything."]]'>
+          <div class="scroller"><div class="shot wide">
+            <img class="win theme-light-only" src="/img/explain-light.webp" alt="An agent explaining why a build watcher keeps using CPU" width="1600" height="1003" loading="lazy">
+            <img class="win theme-dark-only" src="/img/explain-dark.webp" alt="The agent's explanation in dark mode" width="1600" height="1003" loading="lazy">
+          </div></div>
+          <span class="scroll-hint">Swipe to see the whole window</span>
+          <p class="caption">Click Explain, and your own agent investigates right beside the process.</p>
+        </div>
+        <div class="slide" role="tabpanel" id="slide-6" aria-labelledby="tab-6" hidden data-tips='[[46,57,"It asks first","Anything that would change your Mac waits for your okay."],[26,87,"One step at a time","Allow once or reject. Nothing is approved for later."],[35,13,"Read-only until you say so","The agent can look, not change."]]'>
+          <div class="scroller"><div class="shot wide">
+            <img class="win theme-light-only" src="/img/approve-light.webp" alt="The agent asking permission before changing anything" width="1600" height="1003" loading="lazy">
+            <img class="win theme-dark-only" src="/img/approve-dark.webp" alt="A permission request in dark mode" width="1600" height="1003" loading="lazy">
+          </div></div>
+          <span class="scroll-hint">Swipe to see the whole window</span>
+          <p class="caption">An agent helping clean up after agents, one approved step at a time.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="agents">
+      <p>Want help with a fix? Hand it to your own AI agent. You approve each step before it changes anything.</p>
+      <small>Not needed for anything else: servers, worktrees, plugins, history, cleanup and security checks all work on their own.</small>
+      <div class="strip" role="list" aria-label="Works with">
+        <div class="logo" role="listitem"><img src="/img/providers/claude.svg" alt="">Claude Code</div>
+        <div class="logo" role="listitem"><img class="mono" src="/img/providers/openai.svg" alt="">Codex</div>
+        <div class="logo" role="listitem"><img class="mono" src="/img/providers/opencode.svg" alt="">OpenCode</div>
+        <div class="logo" role="listitem"><img class="mono" src="/img/providers/grok.svg" alt="">Grok</div>
+        <div class="logo" role="listitem"><img class="mono" src="/img/providers/cursor.svg" alt="">Cursor</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features" class="wrap">
+    <div class="split">
+      <h2>And the everyday upkeep, too</h2>
+      <p>Clear space, check what starts at login, and review your Mac's security, one click from the menu bar. You see exactly what will change before anything does.</p>
+    </div>
+    <div class="cards3">
+      <div class="feat">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></div>
+        <h3>Free up space safely</h3>
+        <p>See what caches and old build folders hold, exactly what would go, and get it back after you confirm.</p>
+        <div class="mini"><span class="example">Example</span><div class="card">
+          <div class="li"><span>Caches</span><b>18.4 GB</b></div>
+          <div class="bar2"><i style="width:62%;background:var(--green)"></i></div>
+          <div class="li" style="margin-top:10px"><span>Old build folders</span><b>9.1 GB</b></div>
+          <div class="bar2"><i style="width:34%;background:var(--blue)"></i></div>
+        </div></div>
+      </div>
+      <div class="feat">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 3v9M6.3 7.3a8 8 0 1 0 11.4 0"/></svg></div>
+        <h3>See what starts when you log in</h3>
+        <p>Everything that launches by itself, with anything from an unknown developer flagged.</p>
+        <div class="mini"><span class="example">Example</span><div class="card">
+          <div class="li"><span>Google Updater</span><span class="muted">Known developer</span></div>
+          <div class="li"><span>com.helper.agent</span><span class="tag tag-amber">Unknown developer</span></div>
+          <div class="li"><span>Dropbox</span><span class="muted">Known developer</span></div>
+        </div></div>
+      </div>
+      <div class="feat">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/></svg></div>
+        <h3>Know how secure it is</h3>
+        <p>One click checks how well your Mac is protected and lists what to tighten, most important first.</p>
+        <div class="mini"><span class="example">Example</span><div class="card">
+          <div class="check"><i style="background:var(--green)">✓</i><span>Firewall on</span></div>
+          <div class="check"><i style="background:var(--green)">✓</i><span>Disk encrypted</span></div>
+          <div class="check"><i style="background:var(--amber)">!</i><span>3 things worth tightening</span></div>
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="private" class="wrap">
+    <div class="split">
+      <h2>Light, local, and yours</h2>
+      <p>A monitor shouldn't be one more thing slowing your Mac down, and what it records about your machine belongs to you.</p>
+    </div>
+    <div class="bento">
+      <div class="tile big">
+        <h3>Barely there</h3>
+        <div class="num">&lt;1%<small>CPU while it watches</small></div>
+        <p>It keeps an eye on everything from the menu bar without becoming the problem.</p>
+      </div>
+      <div class="tile">
+        <h3>Two weeks of history</h3>
+        <p>The spike that lasted twenty seconds, and the agent behind it, stay on the record.</p>
+        <div class="bars" aria-hidden="true"><i style="height:30%"></i><i style="height:42%"></i><i class="hot" style="height:88%"></i><i style="height:36%"></i><i style="height:28%"></i><i class="hot" style="height:74%"></i><i style="height:40%"></i><i style="height:33%"></i><i class="hot" style="height:95%"></i><i style="height:38%"></i></div>
+      </div>
+      <div class="tile dark">
+        <h3>Private by design</h3>
+        <p>Everything Pollymetric records stays on your Mac. This site doesn't track you either.</p>
+        <div class="pills"><span>No account</span><span>Local history</span><span>No tracking</span></div>
+      </div>
+      <div class="tile wide">
+        <div>
+          <h3>Let your agents check in, on your terms</h3>
+          <p>Connect Claude Code or Codex so they can ask how your Mac is doing. Approve each one with Touch ID, see what it looked at, and revoke it any time. Anything that would change your Mac asks you first, every time.</p>
+        </div>
+        <div class="crop">
+          <img class="theme-light-only" src="/img/connections-light.webp" alt="Connected agents, each approved with Touch ID" width="1600" height="1003" loading="lazy">
+          <img class="theme-dark-only" src="/img/connections-dark.webp" alt="Connected agents in dark mode" width="1600" height="1003" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="install" class="wrap">
+    <div class="section-head">
+      <h2>Three simple steps to get started</h2>
+      <p>No account required. Choose what to enable during setup.</p>
+    </div>
+    <div class="steps">
+      <div>
+        <div class="step-card"><div class="drag" aria-hidden="true">
+          <img src="/img/app-icon.png" alt="">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16M14 6l6 6-6 6"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" style="width:54px"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h5l2 2h8A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>
+        </div></div>
+        <div class="step-label"><span class="n">1</span><div><h3>Download and drag to Applications</h3><p>Open Pollymetric.dmg and drag Pollymetric into Applications.</p></div></div>
+      </div>
+      <div>
+        <div class="step-card main">
+          <img class="theme-light-only" src="/img/setup-light.webp" alt="The setup window" loading="lazy" width="1160" height="1320">
+          <img class="theme-dark-only" src="/img/setup-dark.webp" alt="The setup window in dark mode" loading="lazy" width="1160" height="1320">
+        </div>
+        <div class="step-label"><span class="n">2</span><div><h3>Open it and choose what to enable</h3><p>Choose whether Pollymetric starts at login and which optional tools to enable. Connect an AI agent if you want help investigating problems.</p></div></div>
+      </div>
+      <div>
+        <div class="step-card"><div class="mbstep" aria-hidden="true">
+          <span class="badge"><img src="/img/logo.svg" alt=""></span>
+          <div class="chip"><div class="row"><span class="dot" style="background:var(--green)"></span><div><b>Nothing needs you</b><span>It'll flag anything worth a look</span></div></div></div>
+        </div></div>
+        <div class="step-label"><span class="n">3</span><div><h3>Get on with your day</h3><p>It lives in your menu bar, gray while all is well, and speaks up only when something needs you.</p></div></div>
+      </div>
+    </div>
+    <div class="note" id="first-open">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg>
+      <div><b>The first time you open it:</b> this early release isn't notarized by Apple yet, so macOS will say it can't verify the developer. Open <b>System Settings → Privacy &amp; Security</b> and click <b>Open Anyway</b>. Notarized releases that skip this step are on the way.</div>
+    </div>
+  </section>
+
+  <div class="band">
+    <svg class="curves" viewBox="0 0 1200 420" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M-20 60 C 200 10, 380 120, 420 -20" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+      <path d="M160 440 C 300 300, 560 330, 640 440" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+      <path d="M700 330 C 900 380, 1050 250, 1240 280" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+    </svg>
+    <div style="position:relative">
+      <h2>Know what your agents left running</h2>
+      <p>Free and open source. One download, and your menu bar tells you when something's worth a look.</p>
+      <div class="cta">
+        <a class="btn btn-dark btn-lg" href="https://github.com/pouyanafisi/pollymetric/releases/latest/download/Pollymetric.dmg">Download for Mac</a>
+        <a class="btn btn-line btn-lg" href="https://github.com/pouyanafisi/pollymetric">View on GitHub</a>
+      </div>
+    </div>
+    <div class="visual" aria-hidden="true">
+      <img src="/img/panel-dark.webp" alt="" loading="lazy" width="772" height="1462">
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="fcard">
+    <h4>Why "Pollymetric"</h4>
+    <h2>Polly, as in the parrot. Metric, as in measure.</h2>
+    <p class="sub">AI gets compared to a parrot. Pollymetric keeps count of what the parrots are doing to your machine. Free, open source and MIT licensed.</p>
+  </div>
+  <div class="fcard">
+    <div class="fcols">
+      <div>
+        <h4>Product</h4>
+        <a href="#problem">Why it exists</a>
+        <a href="#tour">See it work</a>
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a href="#private">Privacy</a>
+      </div>
+      <div>
+        <h4>Project</h4>
+        <a href="https://github.com/pouyanafisi/pollymetric">Source code</a>
+        <a href="https://github.com/pouyanafisi/pollymetric/releases">Releases</a>
+        <a href="https://github.com/pouyanafisi/pollymetric/blob/main/LICENSE">MIT license</a>
+      </div>
+    </div>
+    <div class="fsmall">Pollymetric is independent and not affiliated with Apple, Anthropic, OpenAI or the other tools it works with.</div>
+  </div>
+  <div class="fcard">
+    <h4>Help shape Pollymetric</h4>
+    <p class="sub" style="margin-top:0">Something your agents leave behind that it doesn't catch yet? Tell us.</p>
+    <a class="link" href="https://github.com/pouyanafisi/pollymetric/issues">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+      Report an issue
+    </a>
+  </div>
+</footer>
+
+<script>
+  // Theme switch: remembers an explicit choice; otherwise follows the system.
+  document.querySelector(".theme-toggle").addEventListener("click", function () {
+    var next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("theme", next); } catch (e) {}
+  });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function (e) {
+    var saved = null;
+    try { saved = localStorage.getItem("theme"); } catch (err) {}
+    if (!saved) document.documentElement.dataset.theme = e.matches ? "dark" : "light";
+  });
+
+  var navbar = document.querySelector(".navbar");
+  addEventListener("scroll", function () { navbar.classList.toggle("scrolled", scrollY > 8); }, { passive: true });
+
+  // The menu bar icon opens and closes its panel, as on a Mac.
+  (function () {
+    var btn = document.querySelector(".mb-polly"), panel = document.getElementById("hero-panel"), hint = document.querySelector(".try");
+    btn.addEventListener("click", function () {
+      var open = !panel.classList.toggle("closed");
+      btn.classList.toggle("on", open);
+      btn.setAttribute("aria-expanded", String(open));
+      hint.classList.add("gone");
+    });
+  })();
+
+  // The tour: named steps with hotspots. It plays only once it's on screen, and any
+  // interaction hands control to the visitor until they press play again.
+  (function () {
+    var root = document.querySelector("[data-tour]");
+    var tabs = Array.prototype.slice.call(root.querySelectorAll('[role="tab"]'));
+    var slides = Array.prototype.slice.call(root.querySelectorAll('[role="tabpanel"]'));
+    var playBtn = root.querySelector(".play");
+    var ms = 8000, i = 0, timer = null, started = 0, left = ms, seen = false;
+    var still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var playing = !still;
+    root.style.setProperty("--tour-ms", ms + "ms");
+
+    // Hotspots, and the list of tips shown under the image on phones.
+    slides.forEach(function (slide) {
+      var tips = JSON.parse(slide.dataset.tips), shot = slide.querySelector(".shot");
+      var list = document.createElement("ol"); list.className = "tips";
+      tips.forEach(function (t, k) {
+        var b = document.createElement("button");
+        b.type = "button"; b.className = "hs" + (t[1] < 22 ? " below" : "");
+        b.style.left = t[0] + "%"; b.style.top = t[1] + "%";
+        b.setAttribute("aria-label", (k + 1) + ": " + t[2] + ". " + t[3]);
+        b.innerHTML = (k + 1) + '<span class="tip" aria-hidden="true"><b></b></span>';
+        b.querySelector(".tip b").textContent = t[2];
+        b.querySelector(".tip").appendChild(document.createTextNode(t[3]));
+        shot.appendChild(b);
+        var li = document.createElement("li");
+        li.innerHTML = '<span class="k">' + (k + 1) + '</span><span><b></b></span>';
+        li.querySelector("b").textContent = t[2] + ".";
+        li.lastChild.appendChild(document.createTextNode(" " + t[3]));
+        list.appendChild(li);
+      });
+      slide.insertBefore(list, slide.querySelector(".caption"));
+    });
+
+    function restartBar() {
+      var bar = tabs[i].querySelector(".bar i");
+      bar.style.animation = "none"; void bar.offsetWidth; bar.style.animation = "";
+    }
+    function setPlaying(on) {
+      playing = on && !still;
+      root.classList.toggle("playing", playing);
+      playBtn.setAttribute("aria-label", playing ? "Pause the tour" : "Play the tour");
+      playBtn.querySelector(".i-pause").style.display = playing ? "" : "none";
+      playBtn.querySelector(".i-play").style.display = playing ? "none" : "";
+      clearTimeout(timer);
+      if (playing) { left = ms; restartBar(); schedule(); }
+    }
+    function show(n, focus) {
+      i = (n + slides.length) % slides.length;
+      tabs.forEach(function (t, k) {
+        var on = k === i;
+        t.setAttribute("aria-selected", String(on));
+        t.tabIndex = on ? 0 : -1;
+        t.classList.toggle("done", k < i);
+      });
+      slides.forEach(function (s, k) { s.hidden = k !== i; s.classList.toggle("intro", k === i); });
+      if (focus) tabs[i].focus();
+      var strip = tabs[i].parentNode;
+      if (strip.scrollWidth > strip.clientWidth) strip.scrollTo({ left: tabs[i].offsetLeft - 16, behavior: still ? "auto" : "smooth" });
+      left = ms; restartBar(); schedule();
+    }
+    function schedule() {
+      clearTimeout(timer);
+      if (!playing || !seen || document.hidden) return;
+      started = Date.now();
+      timer = setTimeout(function () { show(i + 1); }, left);
+    }
+    function takeOver() { if (playing) setPlaying(false); }
+
+    tabs.forEach(function (t, k) {
+      t.addEventListener("click", function () { takeOver(); show(k); });
+      t.addEventListener("keydown", function (e) {
+        var d = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+        if (e.key === "Home") d = -i;
+        if (e.key === "End") d = slides.length - 1 - i;
+        if (d === undefined) return;
+        e.preventDefault(); takeOver(); show(i + d, true);
+      });
+    });
+    playBtn.addEventListener("click", function () { setPlaying(!playing); });
+    root.addEventListener("click", function (e) {
+      var h = e.target.closest(".hs");
+      document.querySelectorAll(".hs.open").forEach(function (o) { if (o !== h) o.classList.remove("open"); });
+      if (h) { takeOver(); h.classList.toggle("open"); }
+    });
+    root.addEventListener("focusin", function (e) { if (e.target !== playBtn && e.target.closest(".tab, .hs")) takeOver(); });
+    root.addEventListener("mouseenter", function () { if (playing) { clearTimeout(timer); left -= Date.now() - started; root.classList.add("hovering"); } });
+    root.addEventListener("mouseleave", function () { root.classList.remove("hovering"); if (playing) schedule(); });
+    document.addEventListener("visibilitychange", function () { if (document.hidden) clearTimeout(timer); else schedule(); });
+    new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        // Load every step's screenshot now, so switching steps never shows a blank frame.
+        root.querySelectorAll("img[loading=lazy]").forEach(function (img) { img.loading = "eager"; });
+        if (!seen && en.intersectionRatio >= 0.35) { seen = true; setPlaying(playing); }
+      });
+    }, { threshold: [0.05, 0.35] }).observe(root);
+
+    setPlaying(playing);
+    show(0);
+  })();
+</script>
+</body>
+</html>
