@@ -44,6 +44,7 @@ struct AttentionInputs {
     var recurring: [UsageGroup] = []
     var servers: LocalServersReport?
     var worktrees: WorktreesReport?
+    var extensions: AgentExtensionsReport?
     var hasFullDiskAccess = true
     var now: Date = .now
 }
@@ -146,6 +147,16 @@ enum AttentionEngine {
                     action: .dashboard(.worktrees)
                 ))
             }
+        }
+
+        // Agent plugins that keep API keys readable by anything running as you.
+        if let servers = input.extensions?.servers.filter({ $0.flags.contains(.plaintextKey) }), !servers.isEmpty {
+            items.append(.init(
+                id: "plaintext-keys", severity: .warning, symbol: "key",
+                title: servers.count == 1 ? "An agent plugin keeps a key in plain text" : "\(servers.count) agent plugins keep keys in plain text",
+                detail: servers.prefix(2).map(\.name).joined(separator: ", ") + (servers.count > 2 ? " and \(servers.count - 2) more" : ""),
+                action: .dashboard(.extensions)
+            ))
         }
 
         if let report = input.launchItems {

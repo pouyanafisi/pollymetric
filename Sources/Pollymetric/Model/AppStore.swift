@@ -233,6 +233,7 @@ final class AppStore {
             recurring: recurring.value ?? [],
             servers: servers.value,
             worktrees: worktrees.value,
+            extensions: extensions.value,
             hasFullDiskAccess: hasFullDiskAccess
         ))
     }
@@ -313,7 +314,8 @@ final class AppStore {
         loginItem.refresh()
         recurring.refreshIfStale()
         servers.refreshIfStale()
-        if dashboardOpen { harnesses.refreshIfStale(); extensions.refreshIfStale() }
+        extensions.refreshIfStale()
+        if dashboardOpen { harnesses.refreshIfStale() }
         lynis.refreshIfStale()
         // Automatic scans only with Full Disk Access; otherwise each one sets off a
         // round of per-folder prompts. The refresh buttons still work if you insist.
