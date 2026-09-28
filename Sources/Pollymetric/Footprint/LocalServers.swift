@@ -45,7 +45,8 @@ struct LocalServer: Codable, Sendable, Equatable, Identifiable {
         }
     }
 
-    var hostAndPort: String { "\(address):\(port)" }
+    /// Loopback reads as "localhost", the way people type it.
+    var hostAndPort: String { "\(["127.0.0.1", "::1"].contains(address) ? "localhost" : address):\(port)" }
     var url: URL? { URL(string: "http://\(address):\(port)") }
 
     /// "next dev in storefront".

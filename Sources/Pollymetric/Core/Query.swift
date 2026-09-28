@@ -40,11 +40,13 @@ final class Query<Value: Codable & Sendable> {
         }
     }
 
-    /// Screenshots only: show a known value without fetching.
+    /// Screenshots only: show a known value, and never fetch over it.
     func seed(_ value: Value) {
         self.value = value
         updatedAt = .now
+        seeded = true
     }
+    private var seeded = false
 
     var isStale: Bool {
         guard let updatedAt else { return true }
@@ -57,6 +59,7 @@ final class Query<Value: Codable & Sendable> {
 
     @discardableResult
     func refresh() -> Task<Void, Never> {
+        if seeded { return Task {} }
         if let inFlight { return inFlight }
         isFetching = true
         fetchStartedAt = .now

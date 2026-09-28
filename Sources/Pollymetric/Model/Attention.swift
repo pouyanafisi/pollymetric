@@ -142,7 +142,7 @@ enum AttentionEngine {
             if bytes >= reclaimableThreshold {
                 items.append(.init(
                     id: "worktrees", severity: .suggestion, symbol: "arrow.triangle.branch",
-                    title: "\(Bytes.format(bytes)) in worktrees nobody's using",
+                    title: "\(Bytes.format(bytes)) in unused worktrees",
                     detail: "\(idle.count) extra copies of your projects, untouched for over a week.",
                     action: .dashboard(.worktrees)
                 ))
@@ -153,8 +153,8 @@ enum AttentionEngine {
         if let servers = input.extensions?.servers.filter({ $0.flags.contains(.plaintextKey) }), !servers.isEmpty {
             items.append(.init(
                 id: "plaintext-keys", severity: .warning, symbol: "key",
-                title: servers.count == 1 ? "An agent plugin keeps a key in plain text" : "\(servers.count) agent plugins keep keys in plain text",
-                detail: servers.prefix(2).map(\.name).joined(separator: ", ") + (servers.count > 2 ? " and \(servers.count - 2) more" : ""),
+                title: servers.count == 1 ? "A key is stored in plain text" : "\(servers.count) keys stored in plain text",
+                detail: "In agent plugin settings: " + servers.prefix(2).map(\.name).joined(separator: ", ") + (servers.count > 2 ? " and \(servers.count - 2) more" : ""),
                 action: .dashboard(.extensions)
             ))
         }

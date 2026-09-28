@@ -283,6 +283,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 dashboard?.show(.connections)
                 try? await Task.sleep(for: .seconds(1))
                 captureWindows(to: dir.appendingPathComponent("window-connections-fixture.png"))
+                for section in [DashboardSection.servers, .worktrees, .extensions] {
+                    dashboard?.show(section)
+                    try? await Task.sleep(for: .seconds(1.5))
+                    captureWindows(to: dir.appendingPathComponent("window-\(section.rawValue)-fixture.png"))
+                }
                 store.closeAgent()
                 store.selectedProcessGroup = nil
                 dashboard?.show(.conversations)
@@ -298,6 +303,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Synthetic state is confined to an explicitly overridden snapshot data folder.
+    /// Demo data for the agent pages, so screenshots never show the real Mac's servers,
+    /// repositories or plugins.
+    private func seedFootprint(root: URL, next: ProcessIdentity, tsup: ProcessIdentity) {
+        let home = NSHomeDirectory()
+        let now = Date()
+        func server(_ identity: ProcessIdentity, pid: Int32, port: Int, starter: LocalServer.Starter, reach: LocalServer.Reach = .thisMac,
+                    memory: Int64, left: Bool = false, started: TimeInterval) -> LocalServer {
+            var identity = identity
+            identity.pid = pid
+            identity.startedAt = now.addingTimeInterval(-started)
+            return LocalServer(pid: pid, port: port, address: reach == .network ? "0.0.0.0" : "127.0.0.1",
+                               addresses: [reach == .network ? "0.0.0.0" : "127.0.0.1"], reach: reach, starter: starter,
+                               identity: identity, memoryBytes: memory, leftRunning: left)
+        }
+        func id(_ key: String, name: String, label: String, context: String?, app: String?, command: String, chain: [String]) -> ProcessIdentity {
+            ProcessIdentity(key: key, pid: 0, startedAt: now, name: name, label: label, context: context, via: nil, app: app,
+                            appPath: nil, executable: nil, command: command, cwd: nil, chain: chain)
+        }
+        store.servers.seed(LocalServersReport(servers: [
+            server(next, pid: 48_211, port: 3000, starter: .agent("Claude Code"), memory: 612 * 1_048_576, left: true, started: 3 * 86_400),
+            server(id("demo-vite", name: "node", label: "vite", context: "dashboard", app: "iTerm2", command: "node node_modules/.bin/vite --host",
+                      chain: ["Codex", "iTerm2"]), pid: 51_904, port: 5173, starter: .agent("Codex"), reach: .network, memory: 188 * 1_048_576, started: 5 * 3_600),
+            server(id("demo-api", name: "python3.12", label: "uvicorn", context: "api", app: "iTerm2", command: "python3 -m uvicorn main:app --reload",
+                      chain: ["Claude Code", "iTerm2"]), pid: 52_377, port: 8000, starter: .agent("Claude Code"), memory: 96 * 1_048_576, started: 40 * 60),
+            server(id("demo-ollama", name: "ollama", label: "Ollama", context: nil, app: nil, command: "ollama serve", chain: []),
+                   pid: 1_204, port: 11_434, starter: .background, memory: 6_700 * 1_048_576, started: 9 * 86_400),
+            server(id("demo-pg", name: "postgres", label: "postgres", context: nil, app: nil, command: "postgres -D /opt/homebrew/var/postgresql@16", chain: []),
+                   pid: 1_188, port: 5432, starter: .background, memory: 54 * 1_048_576, started: 9 * 86_400),
+        ]))
+        func tree(_ repo: String, _ branch: String, agent: String?, gb: Double, days: Double, inUse: [String] = []) -> Worktree {
+            let path = "\(home)/Sites/\(repo)/.claude/worktrees/\(branch.replacingOccurrences(of: "/", with: "-"))"
+            return Worktree(path: path, repo: repo, repoPath: "\(home)/Sites/\(repo)", name: (path as NSString).lastPathComponent, branch: branch,
+                            agent: agent, lastModified: now.addingTimeInterval(-days * 86_400), bytes: Int64(gb * 1_073_741_824), inUseBy: inUse)
+        }
+        store.worktrees.seed(WorktreesReport(worktrees: [
+            tree("storefront", "agent/checkout-flow", agent: "Claude Code", gb: 4.8, days: 12),
+            tree("storefront", "agent/fix-image-cache", agent: "Claude Code", gb: 4.6, days: 9),
+            tree("storefront", "agent/search-v2", agent: "Claude Code", gb: 5.1, days: 0.1, inUse: ["next dev"]),
+            tree("dashboard", "codex/chart-refactor", agent: "Codex", gb: 2.2, days: 16),
+            tree("dashboard", "codex/auth-migration", agent: "Codex", gb: 2.4, days: 21),
+            tree("api", "agent/rate-limits", agent: "Claude Code", gb: 0.9, days: 3),
+        ]))
+        func ext(_ agent: String, _ kind: AgentExtension.Kind, _ name: String, summary: String? = nil, command: String? = nil, url: String? = nil,
+                 transport: AgentExtension.Transport = .local, env: [String] = [], keys: [String] = [], running: Bool = false, flags: [AgentExtension.Flag] = []) -> AgentExtension {
+            AgentExtension(agent: agent, kind: kind, name: name, source: kind == .server ? "Your settings" : "Your skills", summary: summary, command: command, url: url,
+                           host: url.flatMap { URL(string: $0)?.host }, transport: transport, envNames: env, plaintextKeyNames: keys,
+                           path: "\(home)/.claude.json", configPath: "\(home)/.claude.json", isRunning: running, flags: flags)
+        }
+        store.extensions.seed(AgentExtensionsReport(items: [
+            ext("Claude Code", .server, "github", command: "npx -y @modelcontextprotocol/server-github", env: ["GITHUB_TOKEN"], keys: ["GITHUB_TOKEN"],
+                running: true, flags: [.unpinned, .plaintextKey]),
+            ext("Claude Code", .server, "filesystem", command: "npx -y @modelcontextprotocol/server-filesystem ~/Sites", running: true, flags: [.unpinned]),
+            ext("Claude Code", .server, "linear", url: "https://mcp.linear.app/sse", transport: .remote, flags: [.remote]),
+            ext("Codex", .server, "postgres", command: "uvx mcp-server-postgres@0.6.2", env: ["DATABASE_URL"]),
+            ext("Codex", .server, "browser", command: "npx @playwright/mcp@0.0.41", running: true),
+            ext("Claude Code", .skill, "release-notes", summary: "Drafts release notes from merged pull requests.", flags: [.runsScripts]),
+            ext("Claude Code", .skill, "db-migrations", summary: "Writes and checks database migrations."),
+        ]))
+    }
+
     private func snapshotFixtures() async -> AgentRecord? {
         guard DataDirectory.isSnapshot, let root = DataDirectory.override() else { return nil }
         let db = HistoryStore.shared
@@ -400,6 +465,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         await store.connections.refresh()
+        seedFootprint(root: root, next: next, tsup: tsup)
         return record
     }
 
