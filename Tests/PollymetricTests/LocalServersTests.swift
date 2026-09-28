@@ -97,9 +97,96 @@ final class LocalServersTests: XCTestCase {
 
     /// A real listener in this process shows up in a scan, attributed and on this Mac only.
     func testScanFindsOwnLoopbackListener() async throws {
+        let (fd, port) = listenOnLoopback()
+        defer { close(fd) }
+        let (root, history) = try temporaryHistory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let started = Date()
+        let report = try await LocalServers.scan(history: history)
+        let elapsed = Date().timeIntervalSince(started)
+        let mine = (report.servers + report.system).first { $0.pid == getpid() && $0.port == port }
+        XCTAssertNotNil(mine)
+        XCTAssertEqual(mine?.reach, .thisMac)
+        XCTAssertEqual(mine?.address, "localhost")
+        XCTAssertEqual(mine?.addresses, ["127.0.0.1"])
+        XCTAssertNotNil(mine?.identity)
+        XCTAssertTrue(mine.map(LocalServers.isSameProcess) ?? false)
+        XCTAssertLessThan(elapsed, 2, "a scan should stay cheap enough to run every 20 seconds")
+    }
+
+    /// The agent that started this process has quit (no agent in its live chain), but the
+    /// history recorded it while it was the parent: attributed to that agent and flagged.
+    func testOrphanAttributedFromRecordedHistory() async throws {
+        let (fd, port) = listenOnLoopback()
+        defer { close(fd) }
+        let (root, history) = try temporaryHistory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        // Nothing in this test process's real parent chain is called this.
+        let agents = ["fake-agent": "Fake Agent", "other-agent": "Other Agent"]
+
+        let before = try await LocalServers.scan(history: history, agents: agents)
+        let unrecorded = try XCTUnwrap(before.servers.first { $0.pid == getpid() && $0.port == port })
+        XCTAssertFalse(unrecorded.leftRunning)
+        if case .agent = unrecorded.starter { XCTFail("no history should keep today's attribution") }
+
+        // Recorded earlier: same pid and start time, with the agent in its chain.
+        let live = try XCTUnwrap(unrecorded.identity)
+        var recorded = live
+        recorded.chain = ["zsh", "fake-agent", "zsh", "login"]
+        // An earlier process that had the same pid must not match.
+        var reused = live
+        reused.key = "\(live.pid)-1"
+        reused.command = "reused"
+        reused.chain = ["other-agent"]
+        history.record([ProcessRecord(identity: recorded, cpu: 40, memory: 0), ProcessRecord(identity: reused, cpu: 40, memory: 0)],
+                       duration: 10)
+
+        let after = try await LocalServers.scan(history: history, agents: agents)
+        let orphan = try XCTUnwrap(after.servers.first { $0.pid == getpid() && $0.port == port })
+        XCTAssertEqual(orphan.starter, .agent("Fake Agent"))
+        XCTAssertTrue(orphan.leftRunning)
+        XCTAssertEqual(orphan.origin, "Fake Agent has quit; this is still running")
+    }
+
+    func testAttributeLeftRunningOnlyWithoutLiveAgent() {
+        var mine = LocalServer(pid: 1, port: 3000, address: "localhost", starter: .background)
+        mine.identity = identity(label: "next dev", context: "shop", app: nil, appPath: nil, executable: "/opt/homebrew/bin/node")
+        var live = mine
+        live.starter = .agent("Codex")
+        var system = mine
+        system.starter = .macOS
+        let result = LocalServers.attributeLeftRunning([mine, live, system], recorded: ["1-1": "Claude Code"])
+        XCTAssertEqual(result[0].starter, .agent("Claude Code"))
+        XCTAssertTrue(result[0].leftRunning)
+        XCTAssertEqual(result[1].starter, .agent("Codex"))
+        XCTAssertFalse(result[1].leftRunning)
+        XCTAssertEqual(result[2].starter, .macOS)
+        XCTAssertEqual(LocalServers.attributeLeftRunning([mine], recorded: [:]), [mine])
+    }
+
+    func testAgentFromInterpreterScript() {
+        let agents = LocalServers.agentNames(HarnessDescriptor.builtIns)
+        XCTAssertEqual(agents["claude-code"], "Claude Code")
+        XCTAssertEqual(LocalServers.agent(inArguments: ["node", "/Users/me/.local/share/cursor-agent/versions/2025.09.1/index.js"], agents: agents),
+                       "Cursor Agent")
+        XCTAssertEqual(LocalServers.agent(inArguments: ["/opt/homebrew/bin/node", "--no-warnings",
+                                                        "/opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/cli.js"], agents: agents),
+                       "Claude Code")
+        XCTAssertEqual(LocalServers.agent(inArguments: ["node", "/Users/me/.npm-global/lib/node_modules/@openai/codex/bin/codex.js"], agents: agents),
+                       "Codex")
+        // A project that happens to be named like an agent isn't one.
+        XCTAssertNil(LocalServers.agent(inArguments: ["node", "/Users/me/Sites/codex/server.js"], agents: agents))
+        XCTAssertNil(LocalServers.agent(inArguments: ["node", "../codex/server.js"], agents: agents))
+        // Only interpreters are read.
+        XCTAssertNil(LocalServers.agent(inArguments: ["vim", "/Users/me/.local/share/cursor-agent/index.js"], agents: agents))
+    }
+
+    // MARK: Helpers
+
+    private func listenOnLoopback() -> (fd: Int32, port: Int) {
         let fd = socket(AF_INET, SOCK_STREAM, 0)
         XCTAssertGreaterThanOrEqual(fd, 0)
-        defer { close(fd) }
         var address = sockaddr_in()
         address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
         address.sin_family = sa_family_t(AF_INET)
@@ -114,19 +201,13 @@ final class LocalServersTests: XCTestCase {
         _ = withUnsafeMutablePointer(to: &address) {
             $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.getsockname(fd, $0, &length) }
         }
-        let port = Int(UInt16(bigEndian: address.sin_port))
+        return (fd, Int(UInt16(bigEndian: address.sin_port)))
+    }
 
-        let started = Date()
-        let report = try await LocalServers.scan()
-        let elapsed = Date().timeIntervalSince(started)
-        let mine = (report.servers + report.system).first { $0.pid == getpid() && $0.port == port }
-        XCTAssertNotNil(mine)
-        XCTAssertEqual(mine?.reach, .thisMac)
-        XCTAssertEqual(mine?.address, "localhost")
-        XCTAssertEqual(mine?.addresses, ["127.0.0.1"])
-        XCTAssertNotNil(mine?.identity)
-        XCTAssertTrue(mine.map(LocalServers.isSameProcess) ?? false)
-        XCTAssertLessThan(elapsed, 2, "a scan should stay cheap enough to run every 20 seconds")
+    private func temporaryHistory() throws -> (URL, HistoryStore) {
+        let root = URL(fileURLWithPath: "/tmp/pm-servers-\(UUID().uuidString.prefix(8))")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        return (root, HistoryStore(url: root.appendingPathComponent("history.sqlite")))
     }
 
     private func identity(label: String, context: String?, app: String?, appPath: String?, executable: String?) -> ProcessIdentity {

@@ -24,6 +24,8 @@ struct LocalServer: Codable, Sendable, Equatable, Identifiable {
     var starter: Starter = .background
     var identity: ProcessIdentity?
     var memoryBytes: Int64 = 0
+    /// Its agent has quit and it's still running: the forgotten dev server.
+    var leftRunning = false
 
     enum Reach: String, Codable, Sendable { case thisMac, network }
 
@@ -33,6 +35,14 @@ struct LocalServer: Codable, Sendable, Equatable, Identifiable {
         case app(String)
         case background      // launched on its own, e.g. a Homebrew service
         case macOS
+
+        /// No live agent above it, but one may have started it and quit.
+        var mayBeOrphan: Bool {
+            switch self {
+            case .app, .background: true
+            case .agent, .macOS: false
+            }
+        }
     }
 
     var hostAndPort: String { "\(address):\(port)" }
@@ -51,6 +61,7 @@ struct LocalServer: Codable, Sendable, Equatable, Identifiable {
     var origin: String {
         let app = identity?.app
         switch starter {
+        case .agent(let agent) where leftRunning: return "\(agent) has quit; this is still running"
         case .agent(let agent): return app.map { $0 == agent ? "started by \(agent)" : "started by \(agent) in \($0)" } ?? "started by \(agent)"
         case .app(let name):
             // Its own executable inside the bundle means it's part of the app, not run from it.
@@ -78,18 +89,18 @@ enum LocalServers {
         var addresses: [String]
     }
 
-    static func scan() async throws -> LocalServersReport {
+    static func scan(history: HistoryStore = .shared, agents: [String: String]? = nil) async throws -> LocalServersReport {
         let merged = merge(listeners())
         guard !merged.isEmpty else { return LocalServersReport() }
 
-        let agents = agentNames(HarnessRegistry.load().descriptors)
+        let agents = agents ?? agentNames(HarnessRegistry.load().descriptors)
         let resolver = IdentityResolver()
-        var report = LocalServersReport()
+        var servers: [LocalServer] = []
         for entry in merged {
             guard let usage = rusage(entry.pid) else { continue }
             let name = IdentityResolver.name(pid: entry.pid) ?? "pid \(entry.pid)"
             let identity = resolver.identity(pid: entry.pid, start: usage.start, name: name)
-            let server = LocalServer(
+            var server = LocalServer(
                 pid: entry.pid, port: entry.port,
                 address: host(for: entry.addresses), addresses: entry.addresses,
                 reach: entry.addresses.contains { reach(of: $0) == .network } ? .network : .thisMac,
@@ -98,9 +109,68 @@ enum LocalServers {
                 identity: identity,
                 memoryBytes: usage.footprint
             )
+            if server.starter.mayBeOrphan, let agent = interpretedAgent(above: entry.pid, chain: identity.chain, agents: agents) {
+                server.starter = .agent(agent)
+            }
+            servers.append(server)
+        }
+
+        // An agent that quit leaves its servers parented to launchd. If the process history
+        // recorded this same process (pid and start time) while the agent was still its
+        // parent, that's who started it. One query, for those servers only.
+        let orphans = servers.filter(\.starter.mayBeOrphan).compactMap(\.identity?.key)
+        if !orphans.isEmpty {
+            let recorded = await history.chains(forKeys: orphans)
+                .compactMapValues { chain in chain.lazy.compactMap { agents[$0] }.first }
+            servers = attributeLeftRunning(servers, recorded: recorded)
+        }
+
+        var report = LocalServersReport()
+        for server in servers {
             if server.starter == .macOS { report.system.append(server) } else { report.servers.append(server) }
         }
         return report
+    }
+
+    /// Marks servers whose agent has quit, given process key → agent recorded earlier.
+    static func attributeLeftRunning(_ servers: [LocalServer], recorded: [String: String]) -> [LocalServer] {
+        servers.map { server in
+            guard server.starter.mayBeOrphan, let key = server.identity?.key, let agent = recorded[key] else { return server }
+            var server = server
+            server.starter = .agent(agent)
+            server.leftRunning = true
+            return server
+        }
+    }
+
+    /// An agent run by an interpreter shows up in the parent chain as "node". Its script
+    /// path names it: `node ~/.local/share/cursor-agent/…/index.js`, or
+    /// `node …/node_modules/@anthropic-ai/claude-code/cli.js`. Only installed-tool
+    /// locations count (under node_modules or a hidden folder), so a project folder that
+    /// happens to be called "codex" doesn't.
+    static func agent(inArguments arguments: [String], agents: [String: String]) -> String? {
+        guard let program = arguments.first.map({ ($0 as NSString).lastPathComponent.lowercased() }),
+              ProcessDescriber.isInterpreter(program),
+              let script = arguments.dropFirst().first(where: { !$0.hasPrefix("-") }) else { return nil }
+        let parts = script.split(separator: "/").map(String.init)
+        guard let anchor = parts.firstIndex(where: { $0 == "node_modules" || ($0.hasPrefix(".") && $0.count > 1 && $0 != "..") })
+        else { return nil }
+        return parts[(anchor + 1)...].lazy.compactMap { agents[$0] }.first
+    }
+
+    /// Reads arguments only of interpreter ancestors, and only when the chain has one.
+    private static func interpretedAgent(above pid: Int32, chain: [String], agents: [String: String]) -> String? {
+        guard chain.contains(where: { ProcessDescriber.isInterpreter($0.lowercased()) }) else { return nil }
+        var current = pid
+        for _ in 0..<12 {
+            var info = proc_bsdinfo()
+            let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+            guard proc_pidinfo(current, PROC_PIDTBSDINFO, 0, &info, size) == size, info.pbi_ppid > 1 else { return nil }
+            current = Int32(info.pbi_ppid)
+            guard let name = IdentityResolver.name(pid: current), ProcessDescriber.isInterpreter(name.lowercased()) else { continue }
+            if let agent = agent(inArguments: IdentityResolver.arguments(pid: current).1, agents: agents) { return agent }
+        }
+        return nil
     }
 
     // MARK: Classification (pure)
@@ -153,11 +223,12 @@ enum LocalServers {
             .sorted { ($0.port, $0.pid) < ($1.port, $1.pid) }
     }
 
-    /// Executable name → harness name, e.g. "claude" → "Claude Code".
+    /// Executable name (and harness id, which is how its package folder is often named)
+    /// → harness name, e.g. "claude" and "claude-code" → "Claude Code".
     static func agentNames(_ descriptors: [HarnessDescriptor]) -> [String: String] {
         var names: [String: String] = [:]
         for descriptor in descriptors {
-            for exe in descriptor.executables where names[exe] == nil { names[exe] = descriptor.name }
+            for exe in descriptor.executables + [descriptor.id] where names[exe] == nil { names[exe] = descriptor.name }
         }
         return names
     }
@@ -338,6 +409,8 @@ struct LocalServersPage: View {
             let names = agents.count <= 2 ? agents.sorted().joined(separator: " and ") : "\(agents.count) agents"
             parts.append("\(byAgents) started by \(names)")
         }
+        let left = servers.filter(\.leftRunning).count
+        if left > 0 { parts.append("\(left) left running") }
         return parts.joined(separator: " · ")
     }
 
@@ -383,13 +456,11 @@ struct LocalServerRow: View {
                 HStack(spacing: 8) {
                     Text(server.hostAndPort).font(.callout.weight(.semibold).monospacedDigit())
                     Text(server.what).font(.callout).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    if server.leftRunning {
+                        tag("Left running", help: "The agent that started it has quit, and it's still running.")
+                    }
                     if server.reach == .network, server.starter != .macOS {
-                        Text("Open to your network")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.orange)
-                            .padding(.horizontal, 6).padding(.vertical, 1)
-                            .background(Color.orange.opacity(0.14), in: Capsule())
-                            .help("Other devices on your network can connect to it, unless your firewall blocks them.")
+                        tag("Open to your network", help: "Other devices on your network can connect to it, unless your firewall blocks them.")
                     }
                 }
                 Text(details).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
@@ -416,6 +487,16 @@ struct LocalServerRow: View {
             if let cwd = server.identity?.cwd, cwd != "/" { Button("Open Folder") { Paths.reveal(cwd) } }
             Button("Copy Address") { Paths.copy(server.url?.absoluteString ?? server.hostAndPort) }
         }
+    }
+
+    private func tag(_ text: String, help: String) -> some View {
+        Text(text)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.orange)
+            .padding(.horizontal, 6).padding(.vertical, 1)
+            .background(Color.orange.opacity(0.14), in: Capsule())
+            .fixedSize()
+            .help(help)
     }
 
     /// "started by Claude Code in iTerm2 · up 3 days · 240 MB". Uptime is worked out when
