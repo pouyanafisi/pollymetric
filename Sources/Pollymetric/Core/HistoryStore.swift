@@ -288,6 +288,24 @@ final class HistoryStore: @unchecked Sendable {
         }
     }
 
+    /// The parent chains recorded for these process lifetimes (`ProcessIdentity.key`), to
+    /// tell who started a process whose parent has since quit. One query for all keys.
+    func chains(forKeys keys: [String]) async -> [String: [String]] {
+        guard !keys.isEmpty else { return [:] }
+        return await read { [self] in
+            let placeholders = Array(repeating: "?", count: keys.count).joined(separator: ",")
+            let statement = prepare("SELECT key, chain FROM process WHERE key IN (\(placeholders))")
+            defer { sqlite3_finalize(statement) }
+            bind(statement, keys)
+            var chains: [String: [String]] = [:]
+            while sqlite3_step(statement) == SQLITE_ROW {
+                guard let key = text(statement, 0) else { continue }
+                chains[key] = (text(statement, 1) ?? "").split(separator: "\n").map(String.init)
+            }
+            return chains
+        }
+    }
+
     /// Average CPU % (of one core) for a group, bucketed over time.
     func timeline(of groupKey: String, since: Date, bucket: TimeInterval) async -> [TimePoint] {
         await read { [self] in

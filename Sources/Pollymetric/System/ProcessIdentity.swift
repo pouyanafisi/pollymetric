@@ -147,7 +147,7 @@ final class IdentityResolver {
 
     /// Reads argv through KERN_PROCARGS2. Only works for your own processes, which
     /// are the ones you can act on anyway.
-    private static func arguments(pid: Int32) -> (String?, [String]) {
+    static func arguments(pid: Int32) -> (String?, [String]) {
         var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
         var size = 0
         guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > MemoryLayout<Int32>.size else { return (nil, []) }
