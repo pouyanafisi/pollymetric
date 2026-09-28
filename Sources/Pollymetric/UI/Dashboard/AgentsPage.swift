@@ -322,11 +322,15 @@ enum ProviderLogos {
         guard let source = image(for: descriptor) else { return nil }
         let scale = min(size / max(source.size.width, 1), size / max(source.size.height, 1))
         let fitted = NSSize(width: source.size.width * scale, height: source.size.height * scale)
-        return NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
+        let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
             source.draw(in: NSRect(x: (rect.width - fitted.width) / 2, y: (rect.height - fitted.height) / 2,
                                    width: fitted.width, height: fitted.height))
             return true
         }
+        // One-color marks (Codex, OpenCode, Grok, Cursor) follow the text color, so they
+        // stay visible in dark mode. Claude's mark keeps its own color.
+        image.isTemplate = descriptor.icon == nil && descriptor.id != "claude-code"
+        return image
     }
 
     static func image(for descriptor: HarnessDescriptor) -> NSImage? {

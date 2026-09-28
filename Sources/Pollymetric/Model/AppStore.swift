@@ -241,7 +241,11 @@ final class AppStore {
     /// One line under the score: why it isn't 100, in plain words.
     var headline: String {
         guard let health = monitor.health else { return "Measuring…" }
-        if health.issues.isEmpty { return "Everything looks healthy" }
+        if health.issues.isEmpty {
+            // The Mac itself is fine, but the list below isn't empty: say so, don't contradict it.
+            let count = attention.count
+            return count == 0 ? "Everything looks healthy" : count == 1 ? "Running well · 1 thing to look at" : "Running well · \(count) things to look at"
+        }
         var text = health.issues.prefix(2).joined(separator: " · ")
         if health.issues.contains("High CPU"), let hog = monitor.processes.first, hog.cpu > 50 {
             text += " — \(hog.title)"
