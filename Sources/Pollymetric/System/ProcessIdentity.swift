@@ -121,6 +121,8 @@ final class IdentityResolver {
         return Date(timeIntervalSince1970: Double(info.pbi_start_tvsec) + Double(info.pbi_start_tvusec) / 1e6)
     }
 
+    static func ancestorNames(of pid: Int32) -> [String] { ancestors(of: pid).map(\.name) }
+
     private static func ancestors(of pid: Int32) -> [(name: String, path: String?)] {
         var chain: [(String, String?)] = []
         var current = pid

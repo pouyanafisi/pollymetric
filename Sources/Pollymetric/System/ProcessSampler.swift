@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import HarnessKit
 
 struct ProcessRow: Identifiable, Equatable, Sendable {
     var id: Int32 { pid }
@@ -47,6 +48,11 @@ final class ProcessSampler {
     private var lastFallbackAt: UInt64 = 0
     private var fallbackRows: [ProcessRow] = []
     private var lastMemoryRecord: [Int32: UInt64] = [:]
+    /// Processes an agent started are recorded at least once a minute even when idle, so
+    /// a server an agent leaves behind can be traced back to it after the agent quits.
+    private static let agentExecutables = Set(HarnessDescriptor.builtIns.flatMap(\.executables))
+    private var startedByAgent: [Int32: (start: UInt64, value: Bool)] = [:]
+    private var lastAgentRecord: [Int32: UInt64] = [:]
 
     init() {
         var timebase = mach_timebase_info()
@@ -121,8 +127,11 @@ final class ProcessSampler {
             for entry in live {
                 let heavy = entry.footprint >= Self.notableMemory
                 let memoryDue = heavy && now - (lastMemoryRecord[entry.pid] ?? 0) >= 60_000_000_000
-                guard entry.recordCPU >= Self.notableCPU || memoryDue else { continue }
+                let agentDue = now - (lastAgentRecord[entry.pid] ?? 0) >= 60_000_000_000
+                    && isStartedByAgent(pid: entry.pid, start: entry.start)
+                guard entry.recordCPU >= Self.notableCPU || memoryDue || agentDue else { continue }
                 if memoryDue { lastMemoryRecord[entry.pid] = now }
+                if agentDue { lastAgentRecord[entry.pid] = now }
                 let name = IdentityResolver.name(pid: entry.pid) ?? "pid \(entry.pid)"
                 records.append(ProcessRecord(
                     identity: resolver.identity(pid: entry.pid, start: entry.start, name: name),
@@ -140,6 +149,8 @@ final class ProcessSampler {
             baselineAt = now
             resolver.prune(keeping: Set(current.keys))
             lastMemoryRecord = lastMemoryRecord.filter { current[$0.key] != nil }
+            lastAgentRecord = lastAgentRecord.filter { current[$0.key] != nil }
+            startedByAgent = startedByAgent.filter { current[$0.key] != nil }
             return ProcessSample(top: top, records: records, recordDuration: duration)
         }
         return ProcessSample(top: top, records: [], recordDuration: 0)
@@ -192,5 +203,16 @@ final class ProcessSampler {
             if rows.count == 5 { break }
         }
         return rows
+    }
+}
+
+extension ProcessSampler {
+    /// Whether an agent (Claude Code, Codex, …) is among this process's ancestors. Worked
+    /// out once per process lifetime; it's a short walk up the parent chain.
+    fileprivate func isStartedByAgent(pid: Int32, start: UInt64) -> Bool {
+        if let known = startedByAgent[pid], known.start == start { return known.value }
+        let value = IdentityResolver.ancestorNames(of: pid).contains { Self.agentExecutables.contains($0) }
+        startedByAgent[pid] = (start, value)
+        return value
     }
 }
