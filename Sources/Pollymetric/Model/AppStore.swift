@@ -45,6 +45,13 @@ final class AppStore {
         try await SerialGate.heavy.run { try await KnockKnock.scan() }
     }
     let lynis = Query(key: "lynis", staleAfter: 60, persists: false) { Lynis.load() }
+    /// What agents leave running and what they've been given. Ports change by the
+    /// minute; worktrees need a disk walk; extensions are a handful of config files.
+    let servers = Query(key: "servers", staleAfter: 20, persists: false) { try await LocalServers.scan() }
+    let worktrees = Query(key: "worktrees", staleAfter: 30 * 60) {
+        try await SerialGate.heavy.run { try await Worktrees.scan() }
+    }
+    let extensions = Query(key: "extensions", staleAfter: 5 * 60, persists: false) { try await AgentExtensions.scan() }
     let history = Query(key: "history", staleAfter: 10 * 60) { try await Mole.history() }
     /// Installed agent harnesses, their accounts and sign-in state. Status checks are
     /// cheap, safe commands or file reads, never something that could start a login.

@@ -1,13 +1,16 @@
 import AppKit
 
 enum DashboardSection: String, CaseIterable, Identifiable, Hashable {
-    case overview, processes, cleanup, projects, launchItems, security, history, conversations, general, agents, connections
+    case overview, processes, servers, worktrees, extensions, cleanup, projects, launchItems, security, history, conversations, general, agents, connections
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .overview: "Overview"
         case .processes: "Processes"
+        case .servers: "Local Servers"
+        case .worktrees: "Worktrees"
+        case .extensions: "Plugins & Skills"
         case .cleanup: "Caches"
         case .projects: "Build Folders"
         case .launchItems: "Launch Items"
@@ -24,6 +27,9 @@ enum DashboardSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .overview: "waveform.path.ecg"
         case .processes: "cpu"
+        case .servers: "network"
+        case .worktrees: "arrow.triangle.branch"
+        case .extensions: "puzzlepiece.extension"
         case .cleanup: "sparkles"
         case .projects: "shippingbox"
         case .launchItems: "power"
@@ -78,19 +84,27 @@ enum Tool: String, CaseIterable, Identifiable {
     var command: String? {
         switch self {
         case .diskMap: "dua i ~"
-        case .projects: "kondo " + Self.projectFolders.joined(separator: " ")
+        case .projects: "kondo " + ProjectFolders.display.joined(separator: " ")
         case .mole: "mo"
         case .processes: "btop"
         case .launchItems: nil
         case .audit: nil
         }
     }
+}
 
-    /// The usual places people keep code, or the home folder when none of them exist.
-    private static var projectFolders: [String] {
-        let found = ["Developer", "Projects", "Code", "Sites", "src", "dev", "repos", "GitHub"]
-            .filter { FileManager.default.fileExists(atPath: NSHomeDirectory() + "/" + $0) }
-            .map { "~/" + $0 }
-        return found.isEmpty ? ["~"] : found
+/// Where people keep code: the usual folders that exist on this Mac, or the home
+/// folder when none do.
+enum ProjectFolders {
+    static let candidates = ["Developer", "Projects", "Code", "Sites", "src", "dev", "repos", "GitHub"]
+
+    static var roots: [URL] {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let found = candidates.map { home.appendingPathComponent($0, isDirectory: true) }
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+        return found.isEmpty ? [home] : found
     }
+
+    /// The same, written the way a shell command shows them (~/Sites).
+    static var display: [String] { roots.map { Paths.abbreviate($0.path) } }
 }

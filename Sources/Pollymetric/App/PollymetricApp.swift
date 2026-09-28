@@ -189,6 +189,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if let flag = args.firstIndex(of: "--snapshot"), args.indices.contains(flag + 1) {
             let dir = URL(fileURLWithPath: args[flag + 1], isDirectory: true)
+            // `--dark`: every window in dark appearance, for the dark set of screenshots.
+            if args.contains("--dark") { NSApp.appearance = NSAppearance(named: .darkAqua) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in self?.snapshot(to: dir) }
         }
     }
@@ -440,6 +442,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         super.init()
         popover.behavior = .transient
         popover.animates = true
+        // A popover follows the menu bar's appearance; the dark snapshot set needs it to follow the app.
+        if DataDirectory.isSnapshot, CommandLine.arguments.contains("--dark") { popover.appearance = NSAppearance(named: .darkAqua) }
         popover.delegate = self
         if let button = item.button {
             button.target = self

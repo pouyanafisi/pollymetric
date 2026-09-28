@@ -10,6 +10,11 @@ struct DashboardView: View {
                     row(.overview, badge: store.attention.isEmpty ? nil : "\(store.attention.count)")
                     row(.processes, badge: nil)
                 }
+                Section("Agent Activity") {
+                    row(.servers, badge: store.servers.value.map { $0.servers.isEmpty ? nil : "\($0.servers.count)" } ?? nil)
+                    row(.worktrees, badge: store.worktrees.value.map { $0.worktrees.isEmpty ? nil : "\($0.worktrees.count)" } ?? nil)
+                    row(.extensions, badge: nil)
+                }
                 Section("Storage") {
                     row(.cleanup, badge: store.clean.value.map { Bytes.format($0.totalBytes) })
                     row(.projects, badge: store.purge.value.map { Bytes.format($0.totalBytes) })
@@ -94,6 +99,9 @@ struct DashboardPage: View {
         switch store.dashboardSection {
         case .overview: OverviewPage(store: store)
         case .processes: ProcessesPage(store: store)
+        case .servers: LocalServersPage(store: store)
+        case .worktrees: WorktreesPage(store: store)
+        case .extensions: AgentExtensionsPage(store: store)
         case .cleanup: CachesPage(store: store)
         case .projects: BuildFoldersPage(store: store)
         case .launchItems: LaunchItemsPage(store: store)
