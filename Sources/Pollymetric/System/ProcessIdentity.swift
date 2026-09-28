@@ -191,7 +191,8 @@ final class IdentityResolver {
     /// Some tools install versioned binaries (`…/claude/versions/2.1.283`), so the kernel's
     /// name for them is a version number. Prefer argv[0] or the folder above `versions`.
     static func friendlyName(_ name: String, executable: String?, argv0: String?) -> String {
-        guard name.wholeMatch(of: #/[0-9][0-9.\-]*/#) != nil else { return name }
+        // Most names don't start with a digit; skip building the regex for them.
+        guard name.first?.isNumber == true, name.wholeMatch(of: #/[0-9][0-9.\-]*/#) != nil else { return name }
         if let argv0 {
             let base = (argv0 as NSString).lastPathComponent
             if !base.isEmpty, base.wholeMatch(of: #/[0-9][0-9.\-]*/#) == nil { return base }
@@ -306,7 +307,10 @@ enum ProcessDescriber {
 
     /// Masks values that look like credentials before anything is shown or stored.
     static func redact(_ arguments: [String]) -> [String] {
-        let sensitive = #/(?i)(token|secret|password|passwd|pwd|api[-_]?key|private[-_]?key|auth|credential|cookie)/#
+        func sensitive(_ text: Substring) -> Bool {
+            let lower = text.lowercased()
+            return sensitiveWords.contains { lower.contains($0) }
+        }
         let program = arguments.first.map { ($0 as NSString).lastPathComponent } ?? ""
         let attachedPassword = ["mysql", "mysqldump", "mysqladmin", "mariadb"].contains(program)
         var result: [String] = []
@@ -317,18 +321,18 @@ enum ProcessDescriber {
                 result.append("••••"); mask = nil; continue
             case .header?:
                 mask = nil
-                if let colon = arg.firstIndex(of: ":"), arg[..<colon].contains(sensitive) {
+                if let colon = arg.firstIndex(of: ":"), sensitive(arg[..<colon]) {
                     result.append(arg[...colon] + " ••••"); continue
                 }
             case nil: break
             }
-            if let eq = arg.firstIndex(of: "="), arg[..<eq].contains(sensitive) {
+            if let eq = arg.firstIndex(of: "="), sensitive(arg[..<eq]) {
                 result.append(arg[...eq] + "••••")
             } else if attachedPassword, arg.hasPrefix("-p"), arg.count > 2, !arg.hasPrefix("--") {
                 result.append("-p••••")
             } else {
                 if arg == "-H" || arg == "--header" { mask = .header }
-                else if arg.hasPrefix("-"), arg.contains(sensitive) { mask = .whole }
+                else if arg.hasPrefix("-"), sensitive(Substring(arg)) { mask = .whole }
                 result.append(maskInline(arg))
             }
         }
@@ -337,12 +341,26 @@ enum ProcessDescriber {
 
     private enum Mask { case whole, header }
 
+    /// Argument names whose value is probably a secret.
+    private static let sensitiveWords = ["token", "secret", "password", "passwd", "pwd", "apikey", "api-key", "api_key",
+                                         "privatekey", "private-key", "private_key", "auth", "credential", "cookie"]
+    private static let tokenPrefixes = ["sk-", "ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_", "xox", "glpat-", "AKIA", "AIza", "npm_", "eyJ"]
+
     /// Secrets inside an argument: passwords in URLs, bearer tokens, and well-known key formats.
     static func maskInline(_ text: String) -> String {
         var text = text
-        text.replace(#/(?<scheme>[A-Za-z][A-Za-z0-9+.-]*://[^/\s:@]+:)[^/\s@]+@/#) { "\($0.scheme)••••@" }
-        text.replace(#/(?i)(?<word>bearer|basic)\s+[A-Za-z0-9._~+\/=-]{8,}/#) { "\($0.word) ••••" }
-        text.replace(#/\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|glpat-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|npm_[A-Za-z0-9]{36}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})/#) { _ in "••••" }
+        // Each pattern runs only when its telltale text is there: this is called for every
+        // argument of every new process, and most contain none of them.
+        if text.contains("://"), text.contains("@") {
+            text.replace(#/(?<scheme>[A-Za-z][A-Za-z0-9+.-]*://[^/\s:@]+:)[^/\s@]+@/#) { "\($0.scheme)••••@" }
+        }
+        let lower = text.lowercased()
+        if lower.contains("bearer") || lower.contains("basic") {
+            text.replace(#/(?i)(?<word>bearer|basic)\s+[A-Za-z0-9._~+\/=-]{8,}/#) { "\($0.word) ••••" }
+        }
+        if tokenPrefixes.contains(where: { text.contains($0) }) {
+            text.replace(#/\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|glpat-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|npm_[A-Za-z0-9]{36}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})/#) { _ in "••••" }
+        }
         return text
     }
 }

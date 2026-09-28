@@ -48,8 +48,9 @@ final class ProcessSampler {
     private var lastFallbackAt: UInt64 = 0
     private var fallbackRows: [ProcessRow] = []
     private var lastMemoryRecord: [Int32: UInt64] = [:]
-    /// Processes an agent started are recorded at least once a minute even when idle, so
-    /// a server an agent leaves behind can be traced back to it after the agent quits.
+    /// Processes an agent started are recorded once when first seen, even when idle, so a
+    /// server an agent leaves behind can be traced back to it after the agent quits. One
+    /// record is enough: attribution needs the identity, not a series of samples.
     private static let agentExecutables = Set(HarnessDescriptor.builtIns.flatMap(\.executables))
     private var startedByAgent: [Int32: (start: UInt64, value: Bool)] = [:]
     private var lastAgentRecord: [Int32: UInt64] = [:]
@@ -127,8 +128,7 @@ final class ProcessSampler {
             for entry in live {
                 let heavy = entry.footprint >= Self.notableMemory
                 let memoryDue = heavy && now - (lastMemoryRecord[entry.pid] ?? 0) >= 60_000_000_000
-                let agentDue = now - (lastAgentRecord[entry.pid] ?? 0) >= 60_000_000_000
-                    && isStartedByAgent(pid: entry.pid, start: entry.start)
+                let agentDue = lastAgentRecord[entry.pid] == nil && isStartedByAgent(pid: entry.pid, start: entry.start)
                 guard entry.recordCPU >= Self.notableCPU || memoryDue || agentDue else { continue }
                 if memoryDue { lastMemoryRecord[entry.pid] = now }
                 if agentDue { lastAgentRecord[entry.pid] = now }
