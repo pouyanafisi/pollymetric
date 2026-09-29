@@ -8,10 +8,10 @@
 What's running, who started it, what it's costing you, and what got left behind. Right in your menu bar.</p>
 
 <p align="center">
-  <a href="https://github.com/pouyanafisi/pollymetric/releases/latest"><img src="https://img.shields.io/github/v/release/pouyanafisi/pollymetric?label=download&color=2ea44f" alt="Latest release"></a>
+  <a href="https://github.com/pollymetric/pollymetric/releases/latest"><img src="https://img.shields.io/github/v/release/pollymetric/pollymetric?label=download&color=2ea44f" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B%20%C2%B7%20Apple%20silicon%20%26%20Intel-lightgrey?logo=apple" alt="macOS 14 or later, Apple silicon and Intel">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
-  <a href="https://github.com/pouyanafisi/pollymetric/actions/workflows/tests.yml"><img src="https://github.com/pouyanafisi/pollymetric/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
+  <a href="https://github.com/pollymetric/pollymetric/actions/workflows/tests.yml"><img src="https://github.com/pollymetric/pollymetric/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
 </p>
 
 <p align="center">
@@ -98,7 +98,7 @@ than 1% CPU at idle.
 
 ## Install
 
-1. [**Download Pollymetric.dmg**](https://github.com/pouyanafisi/pollymetric/releases/latest/download/Pollymetric.dmg) (or browse [all releases](https://github.com/pouyanafisi/pollymetric/releases)).
+1. [**Download Pollymetric.dmg**](https://github.com/pollymetric/pollymetric/releases/latest/download/Pollymetric.dmg) (or browse [all releases](https://github.com/pollymetric/pollymetric/releases)).
 2. Open it and drag Pollymetric into **Applications**.
 3. Open Pollymetric. A short setup lets you choose what to enable: start at login, the one permission
    that lets it check your whole Mac, the extra cleanup and security tools (installed for you), and any
